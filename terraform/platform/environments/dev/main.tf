@@ -20,6 +20,16 @@ resource "helm_release" "aws_load_balancer_controller" {
     name  = "clusterName"
     value = local.infra.cluster_name
   }
+
+  set {
+    name  = "vpcId"
+    value = local.infra.vpc_id
+  }
+
+  set {
+    name  = "region"
+    value = var.region
+  }
 }
 
 module "observability" {
