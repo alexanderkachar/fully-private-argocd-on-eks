@@ -2,6 +2,7 @@ node_modules/
 dist/
 .terraform/
 *.tfvars
+!terraform/platform/environments/dev/terraform.tfvars
 *.tfstate
 *.tfstate.*
 *.lock.hcl
