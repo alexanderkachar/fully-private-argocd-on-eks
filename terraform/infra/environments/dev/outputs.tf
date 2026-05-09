@@ -33,6 +33,16 @@ output "grafana_target_group_arn" {
   value       = module.elb.grafana_target_group_arn
 }
 
+output "argocd_target_group_arn" {
+  description = "ArgoCD ALB target group ARN. Required by dev-platform for the TargetGroupBinding."
+  value       = module.elb.argocd_target_group_arn
+}
+
+output "argocd_hostname" {
+  description = "Public hostname for ArgoCD."
+  value       = module.route53.argocd_hostname
+}
+
 output "github_actions_variables" {
   description = "GitHub Actions repository variables expected by deployment workflows."
   value = {

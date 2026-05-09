@@ -1,0 +1,5 @@
+apiVersion: v2
+name: argocd
+description: ArgoCD configuration — Application, TargetGroupBinding, and Image Updater git credentials.
+type: application
+version: 0.1.0

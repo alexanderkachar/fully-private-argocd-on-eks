@@ -54,3 +54,15 @@ terraform init -input=false
 terraform apply -input=false -auto-approve
 SCRIPT
 chmod +x /usr/local/bin/deploy-platform
+
+# helper: run from an SSM session to destroy the platform layer
+cat >/usr/local/bin/destroy-platform <<'SCRIPT'
+#!/bin/bash
+set -euo pipefail
+cd /opt/repo
+git pull --ff-only
+cd terraform/platform/environments/dev
+terraform init -input=false
+terraform destroy -input=false -auto-approve
+SCRIPT
+chmod +x /usr/local/bin/destroy-platform

@@ -66,3 +66,20 @@ variable "grafana_health_check_path" {
   type        = string
   default     = "/api/health"
 }
+
+variable "argocd_hostname" {
+  description = "Public DNS hostname for ArgoCD."
+  type        = string
+}
+
+variable "argocd_target_port" {
+  description = "ArgoCD server pod port (HTTP, insecure mode — TLS terminated at ALB)."
+  type        = number
+  default     = 8080
+}
+
+variable "argocd_health_check_path" {
+  description = "HTTP path used by the ArgoCD target group health check."
+  type        = string
+  default     = "/healthz"
+}

@@ -54,6 +54,12 @@ variable "grafana_subdomain" {
   default     = "grafana"
 }
 
+variable "argocd_subdomain" {
+  description = "Subdomain used by ArgoCD."
+  type        = string
+  default     = "argocd"
+}
+
 variable "certificate_domain_name" {
   description = "Existing ACM certificate domain name used by the app load balancer."
   type        = string

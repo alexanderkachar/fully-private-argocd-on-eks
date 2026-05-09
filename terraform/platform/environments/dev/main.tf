@@ -40,3 +40,15 @@ module "observability" {
 
   depends_on = [helm_release.aws_load_balancer_controller]
 }
+
+module "argocd" {
+  source = "../../modules/argocd"
+
+  argocd_target_group_arn = local.infra.argocd_target_group_arn
+  github_owner            = var.github_owner
+  github_repo             = var.github_repo
+  pat_ssm_parameter_name  = var.pat_ssm_parameter_name
+  region                  = var.region
+
+  depends_on = [helm_release.aws_load_balancer_controller]
+}

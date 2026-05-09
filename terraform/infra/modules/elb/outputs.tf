@@ -22,3 +22,8 @@ output "grafana_target_group_arn" {
   description = "Target group ARN for the Grafana TargetGroupBinding."
   value       = aws_lb_target_group.grafana.arn
 }
+
+output "argocd_target_group_arn" {
+  description = "Target group ARN for the ArgoCD TargetGroupBinding."
+  value       = aws_lb_target_group.argocd.arn
+}

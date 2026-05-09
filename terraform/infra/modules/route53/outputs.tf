@@ -27,3 +27,8 @@ output "grafana_hostname" {
   description = "Public hostname for Grafana."
   value       = local.grafana_hostname
 }
+
+output "argocd_hostname" {
+  description = "Public hostname for ArgoCD."
+  value       = local.argocd_hostname
+}

@@ -37,6 +37,7 @@ module "route53" {
   domain_name             = var.domain_name
   app_subdomain           = var.app_subdomain
   grafana_subdomain       = var.grafana_subdomain
+  argocd_subdomain        = var.argocd_subdomain
   certificate_domain_name = var.certificate_domain_name
 }
 
@@ -66,6 +67,7 @@ module "elb" {
   hosted_zone_id            = module.route53.hosted_zone_id
   app_hostname              = module.route53.app_hostname
   grafana_hostname          = module.route53.grafana_hostname
+  argocd_hostname           = module.route53.argocd_hostname
   certificate_arn           = module.route53.certificate_arn
 }
 

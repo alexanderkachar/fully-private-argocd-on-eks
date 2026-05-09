@@ -1,0 +1,5 @@
+# Managed by ArgoCD Image Updater — do not edit manually.
+# This file is committed automatically when a new image tag is detected in ECR.
+image:
+  repository: ""
+  tag: ""

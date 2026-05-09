@@ -1,0 +1,22 @@
+targetGroupBinding:
+  targetGroupArn: ""
+  targetType: ip
+  # ArgoCD server listens on HTTP (insecure) when TLS is terminated at the ALB.
+  port: 80
+
+app:
+  repoURL: ""
+  githubOwner: ""
+  githubRepo: ""
+  targetRevision: HEAD
+  # Path inside the repo to the application Helm chart.
+  chartPath: charts/express-app
+  # Namespace where the app will be deployed.
+  namespace: app
+  valuesFiles:
+    - values.yaml
+    - values-override.yaml
+
+gitCreds:
+  # GitHub PAT injected by Terraform set_sensitive — never set here in plaintext.
+  password: ""

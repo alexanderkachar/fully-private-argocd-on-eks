@@ -1,0 +1,11 @@
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: argocd-server
+  namespace: {{ .Release.Namespace }}
+spec:
+  targetGroupARN: {{ required "targetGroupBinding.targetGroupArn is required" .Values.targetGroupBinding.targetGroupArn | quote }}
+  targetType: {{ .Values.targetGroupBinding.targetType | quote }}
+  serviceRef:
+    name: argocd-server
+    port: {{ .Values.targetGroupBinding.port }}
