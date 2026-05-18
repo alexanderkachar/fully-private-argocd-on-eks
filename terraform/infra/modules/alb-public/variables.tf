@@ -24,17 +24,12 @@ variable "cluster_security_group_id" {
 }
 
 variable "hosted_zone_id" {
-  description = "Route 53 hosted zone ID for the app hostname."
+  description = "Public Route 53 hosted zone ID for the app hostname."
   type        = string
 }
 
 variable "app_hostname" {
   description = "Public DNS hostname for the application."
-  type        = string
-}
-
-variable "grafana_hostname" {
-  description = "Public DNS hostname for Grafana."
   type        = string
 }
 
@@ -53,33 +48,4 @@ variable "health_check_path" {
   description = "HTTP path used by the target group health check."
   type        = string
   default     = "/"
-}
-
-variable "grafana_target_port" {
-  description = "Grafana pod/container port registered in the ALB target group."
-  type        = number
-  default     = 3000
-}
-
-variable "grafana_health_check_path" {
-  description = "HTTP path used by the Grafana target group health check."
-  type        = string
-  default     = "/api/health"
-}
-
-variable "argocd_hostname" {
-  description = "Public DNS hostname for ArgoCD."
-  type        = string
-}
-
-variable "argocd_target_port" {
-  description = "ArgoCD server pod port (HTTP, insecure mode — TLS terminated at ALB)."
-  type        = number
-  default     = 8080
-}
-
-variable "argocd_health_check_path" {
-  description = "HTTP path used by the ArgoCD target group health check."
-  type        = string
-  default     = "/healthz"
 }

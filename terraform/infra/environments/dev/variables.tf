@@ -43,25 +43,43 @@ variable "domain_name" {
 }
 
 variable "app_subdomain" {
-  description = "Subdomain used by the Express app."
+  description = "Subdomain used by the Express app (public)."
   type        = string
   default     = "app"
 }
 
 variable "grafana_subdomain" {
-  description = "Subdomain used by Grafana."
+  description = "Subdomain used by Grafana (internal)."
   type        = string
   default     = "grafana"
 }
 
 variable "argocd_subdomain" {
-  description = "Subdomain used by ArgoCD."
+  description = "Subdomain used by ArgoCD (internal)."
   type        = string
   default     = "argocd"
 }
 
+variable "gitea_subdomain" {
+  description = "Subdomain used by Gitea (internal)."
+  type        = string
+  default     = "gitea"
+}
+
 variable "certificate_domain_name" {
-  description = "Existing ACM certificate domain name used by the app load balancer."
+  description = "Existing ACM certificate domain name used by both ALBs."
   type        = string
   default     = "*.alexanderkachar.com"
+}
+
+variable "vpn_associated" {
+  description = "When true, associate the Client VPN endpoint with a subnet and create the authorization rule (billable). Toggle off when not actively working to save the per-hour cost."
+  type        = bool
+  default     = true
+}
+
+variable "vpn_client_cidr" {
+  description = "CIDR block VPN clients draw their IPs from. Must not overlap with the VPC."
+  type        = string
+  default     = "10.100.0.0/22"
 }

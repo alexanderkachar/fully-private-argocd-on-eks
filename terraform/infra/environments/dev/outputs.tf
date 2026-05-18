@@ -30,7 +30,22 @@ output "cluster_ca_data" {
 
 output "app_target_group_arn" {
   description = "Express app ALB target group ARN. Required by dev-platform for the app TargetGroupBinding."
-  value       = module.elb.target_group_arn
+  value       = module.alb_public.target_group_arn
+}
+
+output "argocd_target_group_arn" {
+  description = "Internal ALB ArgoCD target group ARN. Required by dev-platform for the TargetGroupBinding."
+  value       = module.alb_internal.argocd_target_group_arn
+}
+
+output "grafana_target_group_arn" {
+  description = "Internal ALB Grafana target group ARN. Required by dev-platform for the TargetGroupBinding."
+  value       = module.alb_internal.grafana_target_group_arn
+}
+
+output "gitea_target_group_arn" {
+  description = "Internal ALB Gitea target group ARN. Phase 2 attaches the Gitea EC2 instance here."
+  value       = module.alb_internal.gitea_target_group_arn
 }
 
 output "app_ecr_image_uri" {
@@ -38,19 +53,29 @@ output "app_ecr_image_uri" {
   value       = "${module.ecr.registry_url}/${local.app_ecr_repository_name}"
 }
 
-output "grafana_target_group_arn" {
-  description = "Grafana ALB target group ARN. Required by dev-platform for the TargetGroupBinding."
-  value       = module.elb.grafana_target_group_arn
-}
-
-output "argocd_target_group_arn" {
-  description = "ArgoCD ALB target group ARN. Required by dev-platform for the TargetGroupBinding."
-  value       = module.elb.argocd_target_group_arn
-}
-
 output "argocd_hostname" {
-  description = "Public hostname for ArgoCD."
+  description = "Internal hostname for ArgoCD."
   value       = module.route53.argocd_hostname
+}
+
+output "grafana_hostname" {
+  description = "Internal hostname for Grafana."
+  value       = module.route53.grafana_hostname
+}
+
+output "gitea_hostname" {
+  description = "Internal hostname for Gitea."
+  value       = module.route53.gitea_hostname
+}
+
+output "vpn_endpoint_id" {
+  description = "Client VPN endpoint ID."
+  value       = module.vpn.endpoint_id
+}
+
+output "vpn_associated" {
+  description = "Whether the Client VPN endpoint is currently associated with a subnet."
+  value       = module.vpn.associated
 }
 
 output "github_actions_variables" {
@@ -62,7 +87,7 @@ output "github_actions_variables" {
     APP_ECR_REPOSITORY        = local.app_ecr_repository_name
     HELM_CHART_ECR_REPOSITORY = local.chart_ecr_repository_name
     APP_HOSTNAME              = module.route53.app_hostname
-    APP_TARGET_GROUP_ARN      = module.elb.target_group_arn
+    APP_TARGET_GROUP_ARN      = module.alb_public.target_group_arn
     GRAFANA_HOSTNAME          = module.route53.grafana_hostname
   }
 }

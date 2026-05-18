@@ -2,14 +2,12 @@ locals {
   name_prefix = "${var.project_name}-${var.environment}"
 
   subnets = {
-    public_a  = { cidr = "10.0.0.0/24", az = var.azs[0], tier = "public" }
-    public_b  = { cidr = "10.0.1.0/24", az = var.azs[1], tier = "public" }
-    runner_a  = { cidr = "10.0.10.0/24", az = var.azs[0], tier = "runner" }
-    runner_b  = { cidr = "10.0.11.0/24", az = var.azs[1], tier = "runner" }
-    private_a = { cidr = "10.0.20.0/24", az = var.azs[0], tier = "private" }
-    private_b = { cidr = "10.0.21.0/24", az = var.azs[1], tier = "private" }
-    db_a      = { cidr = "10.0.30.0/24", az = var.azs[0], tier = "db" }
-    db_b      = { cidr = "10.0.31.0/24", az = var.azs[1], tier = "db" }
+    public_a   = { cidr = "10.0.0.0/24", az = var.azs[0], tier = "public" }
+    public_b   = { cidr = "10.0.1.0/24", az = var.azs[1], tier = "public" }
+    services_a = { cidr = "10.0.10.0/24", az = var.azs[0], tier = "services" }
+    services_b = { cidr = "10.0.11.0/24", az = var.azs[1], tier = "services" }
+    private_a  = { cidr = "10.0.20.0/24", az = var.azs[0], tier = "private" }
+    private_b  = { cidr = "10.0.21.0/24", az = var.azs[1], tier = "private" }
   }
 }
 
@@ -60,7 +58,10 @@ resource "aws_subnet" "this" {
   )
 }
 
-# Single NAT Gateway in public AZ-a.
+# Single NAT Gateway in public AZ-a — used only by the services tier (Gitea
+# bootstrap pulls and Gitea Actions resolving GitHub action repos until they
+# are mirrored locally). Private (cluster) subnets have NO default route to
+# the internet; they reach AWS APIs through VPC endpoints only.
 resource "aws_eip" "nat" {
   domain = "vpc"
 
@@ -92,7 +93,7 @@ resource "aws_route_table" "public" {
   tags = { Name = "${local.name_prefix}-rt-public" }
 }
 
-resource "aws_route_table" "runner" {
+resource "aws_route_table" "services" {
   vpc_id = aws_vpc.this.id
 
   route {
@@ -100,31 +101,22 @@ resource "aws_route_table" "runner" {
     nat_gateway_id = aws_nat_gateway.this.id
   }
 
-  tags = { Name = "${local.name_prefix}-rt-runner" }
+  tags = { Name = "${local.name_prefix}-rt-services" }
 }
 
+# Private route table has only the local route. Cluster nodes reach AWS
+# APIs via the VPC endpoints attached in the vpc-endpoints module.
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.this.id
-
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.this.id
-  }
 
   tags = { Name = "${local.name_prefix}-rt-private" }
 }
 
-resource "aws_route_table" "db" {
-  vpc_id = aws_vpc.this.id
-  tags   = { Name = "${local.name_prefix}-rt-db" }
-}
-
 locals {
   route_table_by_tier = {
-    public  = aws_route_table.public.id
-    runner  = aws_route_table.runner.id
-    private = aws_route_table.private.id
-    db      = aws_route_table.db.id
+    public   = aws_route_table.public.id
+    services = aws_route_table.services.id
+    private  = aws_route_table.private.id
   }
 }
 
@@ -134,4 +126,3 @@ resource "aws_route_table_association" "this" {
   subnet_id      = aws_subnet.this[each.key].id
   route_table_id = local.route_table_by_tier[each.value.tier]
 }
-

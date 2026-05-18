@@ -24,7 +24,7 @@ output "cluster_oidc_issuer_url" {
 }
 
 output "cluster_security_group_id" {
-  description = "EKS cluster security group. EKS attaches this to both the control-plane ENIs (API endpoint) and the managed nodes, so it doubles as the 'node SG' that downstream modules (RDS, bastion ingress) reference."
+  description = "EKS cluster security group. EKS attaches this to both the control-plane ENIs (API endpoint) and the managed nodes, so it doubles as the 'node SG' that downstream modules (ALBs, runner) reference."
   value       = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
 }
 
