@@ -1,0 +1,26 @@
+# ArgoCD Image Updater git write-back credentials.
+# The Application annotation references this secret:
+#   argocd-image-updater.argoproj.io/write-back-method: git:secret:argocd/argocd-image-updater-gitea-creds
+# Image Updater expects keys: username, password.
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: argocd-image-updater-gitea-creds
+  namespace: argocd
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-ssm
+    kind: ClusterSecretStore
+  target:
+    name: argocd-image-updater-gitea-creds
+    creationPolicy: Owner
+    template:
+      type: Opaque
+      data:
+        username: fpargo-admin
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: /fp-argo/gitea/platform-deploy-token

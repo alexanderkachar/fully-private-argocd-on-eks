@@ -1,0 +1,32 @@
+# ArgoCD repository credentials for reading express-app from Gitea.
+# ArgoCD detects this Secret (label argocd.argoproj.io/secret-type=repository)
+# and uses it when syncing any repo matching the URL.
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: argocd-express-app-creds
+  namespace: argocd
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-ssm
+    kind: ClusterSecretStore
+  target:
+    name: argocd-express-app-creds
+    creationPolicy: Owner
+    template:
+      type: Opaque
+      metadata:
+        labels:
+          argocd.argoproj.io/secret-type: repository
+      data:
+        type: git
+        # GITEA_EXPRESS_APP_URL is replaced by bootstrap-gitea.sh before push.
+        url: GITEA_EXPRESS_APP_URL
+        # Username is deterministic — always the admin user created by Terraform.
+        username: fpargo-admin
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: /fp-argo/gitea/express-app-deploy-token

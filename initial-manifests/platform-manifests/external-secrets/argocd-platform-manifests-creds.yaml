@@ -1,0 +1,29 @@
+# ArgoCD repository credentials for reading platform-manifests from Gitea.
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: argocd-platform-manifests-creds
+  namespace: argocd
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-ssm
+    kind: ClusterSecretStore
+  target:
+    name: argocd-platform-manifests-creds
+    creationPolicy: Owner
+    template:
+      type: Opaque
+      metadata:
+        labels:
+          argocd.argoproj.io/secret-type: repository
+      data:
+        type: git
+        # GITEA_PLATFORM_MANIFESTS_URL is replaced by bootstrap-gitea.sh before push.
+        url: GITEA_PLATFORM_MANIFESTS_URL
+        username: fpargo-admin
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: /fp-argo/gitea/platform-deploy-token
