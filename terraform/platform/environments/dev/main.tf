@@ -7,50 +7,44 @@ data "terraform_remote_state" "infra" {
   }
 }
 
-resource "helm_release" "aws_load_balancer_controller" {
-  name       = "aws-load-balancer-controller"
-  repository = "https://aws.github.io/eks-charts"
-  chart      = "aws-load-balancer-controller"
-  namespace  = "kube-system"
-  version    = "1.13.0"
-  wait       = true
-  timeout    = 300
-
-  set {
-    name  = "clusterName"
-    value = local.infra.cluster_name
-  }
-
-  set {
-    name  = "vpcId"
-    value = local.infra.vpc_id
-  }
-
-  set {
-    name  = "region"
-    value = var.region
-  }
+locals {
+  platform_manifests_repo_url = "https://${local.infra.gitea_hostname}/${var.gitea_org}/platform-manifests.git"
 }
 
-module "observability" {
-  source = "../../modules/observability"
+module "aws_lb_controller" {
+  source = "../../modules/aws-lb-controller"
 
-  chart_dir                = "${path.module}/../../../../charts/observability"
-  grafana_target_group_arn = local.infra.grafana_target_group_arn
+  cluster_name          = local.infra.cluster_name
+  vpc_id                = local.infra.vpc_id
+  region                = var.region
+  ecr_registry_url      = local.infra.ecr_registry_url
+  pod_identity_role_arn = local.infra.load_balancer_controller_role_arn
+}
 
-  depends_on = [helm_release.aws_load_balancer_controller]
+module "external_secrets" {
+  source = "../../modules/external-secrets"
+
+  cluster_name          = local.infra.cluster_name
+  region                = var.region
+  ecr_registry_url      = local.infra.ecr_registry_url
+  pod_identity_role_arn = local.infra.external_secrets_role_arn
 }
 
 module "argocd" {
   source = "../../modules/argocd"
 
-  argocd_target_group_arn = local.infra.argocd_target_group_arn
-  app_target_group_arn    = local.infra.app_target_group_arn
-  app_ecr_image_uri       = local.infra.app_ecr_image_uri
-  github_owner            = var.github_owner
-  github_repo             = var.github_repo
-  pat_ssm_parameter_name  = var.pat_ssm_parameter_name
-  region                  = var.region
+  cluster_name                    = local.infra.cluster_name
+  region                          = var.region
+  ecr_registry_url                = local.infra.ecr_registry_url
+  argocd_target_group_arn         = local.infra.argocd_target_group_arn
+  platform_manifests_repo_url     = local.platform_manifests_repo_url
+  gitea_username                  = local.infra.gitea_admin_username
+  platform_deploy_token_ssm_name  = var.platform_deploy_token_ssm_name
+  application_controller_role_arn = local.infra.argocd_application_controller_role_arn
+  image_updater_role_arn          = local.infra.argocd_image_updater_role_arn
 
-  depends_on = [helm_release.aws_load_balancer_controller]
+  depends_on = [
+    module.aws_lb_controller,
+    module.external_secrets,
+  ]
 }

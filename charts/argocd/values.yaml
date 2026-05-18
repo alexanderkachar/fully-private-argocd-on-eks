@@ -1,26 +1,17 @@
 targetGroupBinding:
   targetGroupArn: ""
   targetType: ip
-  # ArgoCD server listens on HTTP (insecure) when TLS is terminated at the ALB.
+  # ArgoCD server listens on HTTP when TLS is terminated at the internal ALB.
   port: 80
 
-app:
+repoCredentials:
+  secretName: argocd-gitea-creds
   repoURL: ""
-  githubOwner: ""
-  githubRepo: ""
-  # Full ECR image URI without tag — injected by Terraform, used by Image Updater annotation.
-  imageRepository: ""
-  # Express app ALB target group ARN — injected by Terraform, set as a Helm value for ArgoCD to render.
-  targetGroupArn: ""
-  targetRevision: HEAD
-  # Path inside the repo to the application Helm chart.
-  chartPath: charts/express-app
-  # Namespace where the app will be deployed.
-  namespace: app
-  valuesFiles:
-    - values.yaml
-    - values-override.yaml
+  username: fpargo-admin
+  tokenSsmParameter: /fp-argo/gitea/platform-deploy-token
 
-gitCreds:
-  # GitHub PAT injected by Terraform set_sensitive — never set here in plaintext.
-  password: ""
+rootApplication:
+  name: root
+  repoURL: ""
+  targetRevision: main
+  path: apps

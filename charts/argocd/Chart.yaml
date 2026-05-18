@@ -1,5 +1,5 @@
 apiVersion: v2
 name: argocd
-description: ArgoCD configuration — Application, TargetGroupBinding, and Image Updater git credentials.
+description: ArgoCD bootstrap configuration for Gitea credentials, root app, and internal ALB binding.
 type: application
-version: 0.2.0
+version: 0.3.0

@@ -1,8 +1,12 @@
-data "aws_caller_identity" "current" {}
+locals {
+  image_updater_service_account = "argocd-image-updater"
+}
 
-data "aws_ssm_parameter" "github_pat" {
-  name            = var.pat_ssm_parameter_name
-  with_decryption = true
+resource "aws_eks_pod_identity_association" "application_controller" {
+  cluster_name    = var.cluster_name
+  namespace       = var.namespace
+  service_account = "argocd-application-controller"
+  role_arn        = var.application_controller_role_arn
 }
 
 resource "helm_release" "argocd" {
@@ -15,61 +19,95 @@ resource "helm_release" "argocd" {
   wait             = true
   timeout          = 600
 
-  # Run ArgoCD server in HTTP mode; TLS is terminated at the ALB.
-  set {
-    name  = "server.extraArgs[0]"
-    value = "--insecure"
-  }
+  values = [
+    yamlencode({
+      global = {
+        image = {
+          repository = "${var.ecr_registry_url}/argocd"
+          tag        = var.argocd_image_tag
+        }
+      }
 
-  set {
-    name  = "server.service.type"
-    value = "ClusterIP"
-  }
+      configs = {
+        params = {
+          "server.insecure" = true
+        }
+        cm = {
+          "admin.enabled" = true
+        }
+      }
+
+      controller = {
+        serviceAccount = {
+          create = true
+          name   = "argocd-application-controller"
+        }
+      }
+
+      server = {
+        service = {
+          type = "ClusterIP"
+        }
+      }
+
+      dex = {
+        image = {
+          repository = "${var.ecr_registry_url}/dex"
+          tag        = var.dex_image_tag
+        }
+      }
+
+      redis = {
+        image = {
+          repository = "${var.ecr_registry_url}/redis"
+          tag        = var.redis_image_tag
+        }
+      }
+    }),
+  ]
+
+  depends_on = [aws_eks_pod_identity_association.application_controller]
 }
 
-resource "helm_release" "argocd_config" {
-  name      = "argocd-config"
+resource "helm_release" "argocd_bootstrap" {
+  name      = "argocd-bootstrap"
   chart     = "${path.module}/../../../../charts/argocd"
   namespace = var.namespace
   wait      = true
   timeout   = 120
 
-  set {
-    name  = "targetGroupBinding.targetGroupArn"
-    value = var.argocd_target_group_arn
-  }
+  values = [
+    yamlencode({
+      targetGroupBinding = {
+        targetGroupArn = var.argocd_target_group_arn
+        targetType     = "ip"
+        port           = 80
+      }
 
-  set {
-    name  = "app.repoURL"
-    value = "https://github.com/${var.github_owner}/${var.github_repo}.git"
-  }
+      repoCredentials = {
+        secretName        = "argocd-gitea-creds"
+        repoURL           = var.platform_manifests_repo_url
+        username          = var.gitea_username
+        tokenSsmParameter = var.platform_deploy_token_ssm_name
+      }
 
-  set {
-    name  = "app.githubOwner"
-    value = var.github_owner
-  }
-
-  set {
-    name  = "app.githubRepo"
-    value = var.github_repo
-  }
-
-  set {
-    name  = "app.imageRepository"
-    value = var.app_ecr_image_uri
-  }
-
-  set {
-    name  = "app.targetGroupArn"
-    value = var.app_target_group_arn
-  }
-
-  set_sensitive {
-    name  = "gitCreds.password"
-    value = data.aws_ssm_parameter.github_pat.value
-  }
+      rootApplication = {
+        name           = "root"
+        repoURL        = var.platform_manifests_repo_url
+        targetRevision = "main"
+        path           = "apps"
+      }
+    }),
+  ]
 
   depends_on = [helm_release.argocd]
+}
+
+resource "aws_eks_pod_identity_association" "image_updater" {
+  cluster_name    = var.cluster_name
+  namespace       = var.namespace
+  service_account = local.image_updater_service_account
+  role_arn        = var.image_updater_role_arn
 }
 
 resource "helm_release" "image_updater" {
@@ -81,46 +119,42 @@ resource "helm_release" "image_updater" {
   wait       = true
   timeout    = 300
 
-  set {
-    name  = "config.registries[0].name"
-    value = "ECR"
-  }
+  values = [
+    yamlencode({
+      image = {
+        repository = "${var.ecr_registry_url}/argocd-image-updater"
+        tag        = var.image_updater_image_tag
+      }
 
-  set {
-    name  = "config.registries[0].api_url"
-    value = "https://${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com"
-  }
+      serviceAccount = {
+        create = true
+        name   = local.image_updater_service_account
+      }
 
-  set {
-    name  = "config.registries[0].prefix"
-    value = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com"
-  }
+      config = {
+        registries = [
+          {
+            name        = "ECR"
+            api_url     = "https://${var.ecr_registry_url}"
+            prefix      = var.ecr_registry_url
+            ping        = true
+            credentials = "ext:/scripts/ecr-login.sh"
+            credsexpire = "10h"
+          },
+        ]
+      }
 
-  set {
-    name  = "config.registries[0].ping"
-    value = "true"
-  }
+      authScripts = {
+        enabled = true
+        scripts = {
+          "ecr-login.sh" = "#!/bin/sh\naws ecr get-login-password --region ${var.region}"
+        }
+      }
+    }),
+  ]
 
-  set {
-    name  = "config.registries[0].credentials"
-    value = "ext:/scripts/ecr-login.sh"
-  }
-
-  set {
-    name  = "config.registries[0].credsexpire"
-    value = "10h"
-  }
-
-  set {
-    name  = "authScripts.enabled"
-    value = "true"
-  }
-
-  # ECR credential helper script — fetches a fresh token before each poll cycle.
-  set {
-    name  = "authScripts.scripts.ecr-login\\.sh"
-    value = "#!/bin/sh\naws ecr get-login-password --region ${var.region}"
-  }
-
-  depends_on = [helm_release.argocd]
+  depends_on = [
+    aws_eks_pod_identity_association.image_updater,
+    helm_release.argocd_bootstrap,
+  ]
 }

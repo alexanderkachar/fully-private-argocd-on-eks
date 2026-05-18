@@ -2,6 +2,10 @@ locals {
   name_prefix = "${var.project_name}-${var.environment}"
 }
 
+data "aws_caller_identity" "current" {}
+
+data "aws_region" "current" {}
+
 data "aws_iam_policy_document" "cluster_assume" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -336,6 +340,106 @@ resource "aws_iam_role_policy" "load_balancer_controller" {
           "elasticloadbalancing:RemoveListenerCertificates",
           "elasticloadbalancing:SetRulePriorities",
           "elasticloadbalancing:SetWebAcl",
+        ]
+        Resource = "*"
+      },
+    ]
+  })
+}
+
+resource "aws_iam_role" "external_secrets" {
+  name               = "${local.name_prefix}-external-secrets-role"
+  assume_role_policy = data.aws_iam_policy_document.pod_identity_assume.json
+}
+
+resource "aws_iam_role_policy" "external_secrets" {
+  name = "${local.name_prefix}-external-secrets-policy"
+  role = aws_iam_role.external_secrets.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:DescribeParameters",
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParametersByPath",
+        ]
+        Resource = [
+          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/fp-argo",
+          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/fp-argo/*",
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+        ]
+        Resource = "*"
+      },
+    ]
+  })
+}
+
+resource "aws_iam_role" "argocd_application_controller" {
+  name               = "${local.name_prefix}-argocd-app-controller-role"
+  assume_role_policy = data.aws_iam_policy_document.pod_identity_assume.json
+}
+
+resource "aws_iam_role_policy" "argocd_application_controller" {
+  name = "${local.name_prefix}-argocd-app-controller-policy"
+  role = aws_iam_role.argocd_application_controller.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:BatchGetImage",
+          "ecr:DescribeImages",
+          "ecr:DescribeRepositories",
+          "ecr:GetAuthorizationToken",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:ListImages",
+        ]
+        Resource = "*"
+      },
+    ]
+  })
+}
+
+resource "aws_iam_role" "argocd_image_updater" {
+  name               = "${local.name_prefix}-argocd-image-updater-role"
+  assume_role_policy = data.aws_iam_policy_document.pod_identity_assume.json
+}
+
+resource "aws_iam_role_policy" "argocd_image_updater" {
+  name = "${local.name_prefix}-argocd-image-updater-policy"
+  role = aws_iam_role.argocd_image_updater.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:BatchGetImage",
+          "ecr:DescribeImages",
+          "ecr:DescribeRepositories",
+          "ecr:GetAuthorizationToken",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:ListImages",
         ]
         Resource = "*"
       },

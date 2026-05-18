@@ -2,10 +2,10 @@ locals {
   name           = "${var.project_name}-${var.environment}-gitea"
   admin_username = "fpargo-admin"
 
-  ssm_prefix             = "/${var.project_name}/gitea"
-  admin_password_ssm     = "${local.ssm_prefix}/admin-password"
-  admin_api_token_ssm    = "${local.ssm_prefix}/admin-api-token"
-  runner_token_ssm       = "${local.ssm_prefix}/runner-registration-token"
+  ssm_prefix          = "/${var.project_name}/gitea"
+  admin_password_ssm  = "${local.ssm_prefix}/admin-password"
+  admin_api_token_ssm = "${local.ssm_prefix}/admin-api-token"
+  runner_token_ssm    = "${local.ssm_prefix}/runner-registration-token"
 
   compose_rendered = templatefile("${path.module}/../../../../docker-compose/gitea/docker-compose.yml.tpl", {
     gitea_version = var.gitea_version
@@ -175,14 +175,14 @@ resource "aws_ebs_volume" "data" {
 
 locals {
   user_data = templatefile("${path.module}/user-data.sh.tpl", {
-    region                   = data.aws_region.current.name
-    config_bucket            = var.config_bucket_name
-    backup_bucket            = var.backup_bucket_name
-    admin_username           = local.admin_username
-    admin_password_ssm_name  = local.admin_password_ssm
-    admin_token_ssm_name     = local.admin_api_token_ssm
-    runner_token_ssm_name    = local.runner_token_ssm
-    data_volume_id_short     = trimprefix(aws_ebs_volume.data.id, "vol-")
+    region                  = data.aws_region.current.name
+    config_bucket           = var.config_bucket_name
+    backup_bucket           = var.backup_bucket_name
+    admin_username          = local.admin_username
+    admin_password_ssm_name = local.admin_password_ssm
+    admin_token_ssm_name    = local.admin_api_token_ssm
+    runner_token_ssm_name   = local.runner_token_ssm
+    data_volume_id_short    = trimprefix(aws_ebs_volume.data.id, "vol-")
   })
 }
 

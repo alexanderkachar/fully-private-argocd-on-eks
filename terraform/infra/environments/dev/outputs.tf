@@ -53,6 +53,26 @@ output "ecr_registry_url" {
   value       = module.ecr.registry_url
 }
 
+output "load_balancer_controller_role_arn" {
+  description = "Pod Identity role ARN for AWS Load Balancer Controller. Consumed by the platform layer."
+  value       = module.iam.load_balancer_controller_role_arn
+}
+
+output "external_secrets_role_arn" {
+  description = "Pod Identity role ARN for External Secrets Operator. Consumed by the platform layer."
+  value       = module.iam.external_secrets_role_arn
+}
+
+output "argocd_application_controller_role_arn" {
+  description = "Pod Identity role ARN for ArgoCD application controller. Consumed by the platform layer."
+  value       = module.iam.argocd_application_controller_role_arn
+}
+
+output "argocd_image_updater_role_arn" {
+  description = "Pod Identity role ARN for ArgoCD Image Updater. Consumed by the platform layer."
+  value       = module.iam.argocd_image_updater_role_arn
+}
+
 output "app_ecr_image_uri" {
   description = "Full ECR image URI for the Express app (without tag). Required by dev-platform for Image Updater."
   value       = "${module.ecr.registry_url}/${local.app_ecr_repository_name}"

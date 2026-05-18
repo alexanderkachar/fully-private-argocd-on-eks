@@ -4,17 +4,14 @@ variable "region" {
   default     = "us-east-1"
 }
 
-variable "github_owner" {
-  description = "GitHub owner (user or org) of the application repository."
+variable "gitea_org" {
+  description = "Gitea organization containing the platform-manifests repository."
   type        = string
+  default     = "fp-argo"
 }
 
-variable "github_repo" {
-  description = "GitHub repository name (without owner prefix)."
+variable "platform_deploy_token_ssm_name" {
+  description = "SSM parameter name holding the platform-manifests deploy token created by bootstrap-gitea.sh."
   type        = string
-}
-
-variable "pat_ssm_parameter_name" {
-  description = "SSM parameter name holding the GitHub PAT used by ArgoCD Image Updater for Git write-back."
-  type        = string
+  default     = "/fp-argo/gitea/platform-deploy-token"
 }
