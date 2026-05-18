@@ -6,18 +6,13 @@ resource "helm_release" "observability" {
   wait             = true
   timeout          = 900
 
-  set {
-    name  = "grafanaTargetGroupBinding.enabled"
-    value = "true"
-  }
-
-  set {
-    name  = "grafanaTargetGroupBinding.targetGroupArn"
-    value = var.grafana_target_group_arn
-  }
-
-  set {
-    name  = "grafanaTargetGroupBinding.targetType"
-    value = "ip"
-  }
+  values = [
+    yamlencode({
+      grafanaTargetGroupBinding = {
+        enabled        = true
+        targetGroupArn = var.grafana_target_group_arn
+        targetType     = "ip"
+      }
+    })
+  ]
 }

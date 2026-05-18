@@ -2,7 +2,7 @@ terraform {
   required_version = ">= 1.9.0"
   required_providers {
     aws  = { source = "hashicorp/aws", version = "~> 5.70" }
-    helm = { source = "hashicorp/helm", version = "~> 2.17" }
+    helm = { source = "hashicorp/helm", version = "~> 3.1" }
   }
 
   backend "s3" {
@@ -21,11 +21,11 @@ provider "aws" {
 }
 
 provider "helm" {
-  kubernetes {
+  kubernetes = {
     host                   = local.infra.cluster_endpoint
     cluster_ca_certificate = base64decode(local.infra.cluster_ca_data)
 
-    exec {
+    exec = {
       api_version = "client.authentication.k8s.io/v1beta1"
       command     = "aws"
       args = [
