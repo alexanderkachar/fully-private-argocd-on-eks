@@ -35,7 +35,7 @@ output "runner_token_ssm_name" {
 
 output "data_volume_id" {
   description = "Persistent data EBS volume ID."
-  value       = aws_ebs_volume.data.id
+  value       = local.data_volume_id
 }
 
 output "ssm_session_command" {

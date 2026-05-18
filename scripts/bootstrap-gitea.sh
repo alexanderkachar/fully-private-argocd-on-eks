@@ -33,6 +33,7 @@ tf_output() {
 GITEA_HOSTNAME=$(tf_output gitea_hostname)
 ADMIN_USERNAME=$(tf_output gitea_admin_username)
 TOKEN_SSM_NAME=$(tf_output gitea_admin_api_token_ssm_name)
+AWS_REGION=$(tf_output region)
 ECR_REGISTRY=$(tf_output ecr_registry_url)
 APP_ECR_IMAGE_URI=$(tf_output app_ecr_image_uri)
 GRAFANA_TG_ARN=$(tf_output grafana_target_group_arn)
@@ -46,6 +47,7 @@ EXPRESS_APP_URL="${GITEA_URL}/${GITEA_ORG}/express-app.git"
 echo "Gitea URL              : ${GITEA_URL}"
 echo "Admin user             : ${ADMIN_USERNAME}"
 echo "Org                    : ${GITEA_ORG}"
+echo "AWS region             : ${AWS_REGION}"
 echo "ECR registry           : ${ECR_REGISTRY}"
 echo "App ECR image URI      : ${APP_ECR_IMAGE_URI}"
 echo "Grafana target group   : ${GRAFANA_TG_ARN}"
@@ -58,6 +60,7 @@ echo "Reading admin API token from SSM (${TOKEN_SSM_NAME})…"
 ADMIN_TOKEN=$(aws ssm get-parameter \
   --name "${TOKEN_SSM_NAME}" \
   --with-decryption \
+  --region "${AWS_REGION}" \
   --query 'Parameter.Value' \
   --output text)
 
@@ -131,25 +134,30 @@ echo ""
 #   c) optionally copies additional directories (charts, app source),
 # then returns the temp dir path to the caller.
 
-build_staged_tree() {
-  local src_dir="$1"
-  local staged
-  staged=$(mktemp -d)
-
-  rsync -a --exclude='.git' "${src_dir}/" "${staged}/"
-
+substitute_placeholders() {
+  local staged="$1"
   # Substitute all placeholders in one pass over every text file.
   # We use find + sed to avoid touching binary files (chart tarballs).
   while IFS= read -r -d '' f; do
     sed -i \
       -e "s|GITEA_PLATFORM_MANIFESTS_URL|${PLATFORM_MANIFESTS_URL}|g" \
       -e "s|GITEA_EXPRESS_APP_URL|${EXPRESS_APP_URL}|g" \
+      -e "s|AWS_REGION|${AWS_REGION}|g" \
       -e "s|ECR_REGISTRY|${ECR_REGISTRY}|g" \
       -e "s|APP_ECR_IMAGE_URI|${APP_ECR_IMAGE_URI}|g" \
       -e "s|GITEA_GRAFANA_TARGET_GROUP_ARN|${GRAFANA_TG_ARN}|g" \
       -e "s|GITEA_APP_TARGET_GROUP_ARN|${APP_TG_ARN}|g" \
       "$f"
   done < <(find "$staged" -type f -not -path '*/.git/*' -not -name '*.tgz' -not -name '*.gz' -print0)
+}
+
+build_staged_tree() {
+  local src_dir="$1"
+  local staged
+  staged=$(mktemp -d)
+
+  rsync -a --exclude='.git' "${src_dir}/" "${staged}/"
+  substitute_placeholders "$staged"
 
   echo "$staged"
 }
@@ -205,6 +213,7 @@ pm_staged=$(build_staged_tree "${REPO_ROOT}/initial-manifests/platform-manifests
 # platform-manifests staged tree so ArgoCD can sync it without public Helm access.
 mkdir -p "${pm_staged}/observability/chart"
 rsync -a --exclude='.git' "${REPO_ROOT}/charts/observability/" "${pm_staged}/observability/chart/"
+substitute_placeholders "$pm_staged"
 push_content "platform-manifests" "$pm_staged"
 rm -rf "$pm_staged"
 echo ""
@@ -217,6 +226,7 @@ ea_staged=$(build_staged_tree "${REPO_ROOT}/initial-manifests/express-app")
 rsync -a --exclude='.git' "${REPO_ROOT}/app/" "${ea_staged}/app/"
 # Helm chart for the app
 rsync -a --exclude='.git' "${REPO_ROOT}/charts/express-app/" "${ea_staged}/chart/"
+substitute_placeholders "$ea_staged"
 push_content "express-app" "$ea_staged"
 rm -rf "$ea_staged"
 echo ""
@@ -263,6 +273,7 @@ create_access_token() {
       --type "SecureString" \
       --value "${token_val}" \
       --overwrite \
+      --region "${AWS_REGION}" \
       > /dev/null
     echo "  Stored."
   else
@@ -276,11 +287,11 @@ create_access_token \
   "/fp-argo/gitea/platform-deploy-token" \
   '["repository:read","repository:write"]'
 
-# express-app token: read-only (ArgoCD reads the Helm chart)
+# express-app token: read + write (ArgoCD reads the chart; Image Updater writes values-override.yaml)
 create_access_token \
   "argocd-express-app" \
   "/fp-argo/gitea/express-app-deploy-token" \
-  '["repository:read"]'
+  '["repository:read","repository:write"]'
 
 echo ""
 echo "Bootstrap complete."

@@ -3,6 +3,11 @@ output "vpc_id" {
   value       = module.vpc.vpc_id
 }
 
+output "region" {
+  description = "AWS region for this environment."
+  value       = var.region
+}
+
 output "private_subnet_ids" {
   description = "Private (cluster) subnet IDs."
   value       = module.vpc.private_subnet_ids
@@ -126,6 +131,16 @@ output "gitea_runner_token_ssm_name" {
 output "gitea_server_ssm_session_command" {
   description = "Copy-paste command to start an SSM session into the Gitea server."
   value       = module.gitea_server.ssm_session_command
+}
+
+output "gitea_server_instance_id" {
+  description = "Gitea EC2 instance ID. Used by lifecycle scripts for SSM commands."
+  value       = module.gitea_server.instance_id
+}
+
+output "gitea_data_volume_id" {
+  description = "Persistent Gitea data EBS volume ID. Save this before soft teardown and pass it back on spin-up."
+  value       = module.gitea_server.data_volume_id
 }
 
 output "gitea_runner_ssm_session_command" {

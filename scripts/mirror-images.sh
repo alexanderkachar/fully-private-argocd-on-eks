@@ -26,6 +26,11 @@ if ! ECR_REGISTRY=$(terraform -chdir="$INFRA_DIR" output -raw ecr_registry_url 2
   echo "       Run 'terraform -chdir=$INFRA_DIR apply' first." >&2
   exit 1
 fi
+AWS_REGION=$(terraform -chdir="$INFRA_DIR" output -raw region 2>/dev/null || true)
+if [[ -z "$AWS_REGION" ]]; then
+  AWS_REGION=$(aws configure get region 2>/dev/null || true)
+fi
+AWS_REGION="${AWS_REGION:-us-east-1}"
 
 echo "ECR registry: ${ECR_REGISTRY}"
 
@@ -33,7 +38,7 @@ echo "ECR registry: ${ECR_REGISTRY}"
 
 if [[ "$DRY_RUN" == false ]]; then
   echo "Authenticating Docker to ECR…"
-  aws ecr get-login-password --region "$(aws configure get region)" \
+  aws ecr get-login-password --region "$AWS_REGION" \
     | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
 fi
 

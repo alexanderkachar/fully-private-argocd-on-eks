@@ -73,3 +73,9 @@ variable "vpn_client_cidr" {
   type        = string
   default     = "10.100.0.0/22"
 }
+
+variable "gitea_data_volume_id" {
+  description = "Existing Gitea data EBS volume ID to reattach after soft teardown. Leave empty to create a fresh volume."
+  type        = string
+  default     = ""
+}

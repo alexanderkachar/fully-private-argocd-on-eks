@@ -6,6 +6,7 @@ locals {
   admin_password_ssm  = "${local.ssm_prefix}/admin-password"
   admin_api_token_ssm = "${local.ssm_prefix}/admin-api-token"
   runner_token_ssm    = "${local.ssm_prefix}/runner-registration-token"
+  data_volume_id      = var.data_volume_id != "" ? var.data_volume_id : aws_ebs_volume.data[0].id
 
   compose_rendered = templatefile("${path.module}/../../../../docker-compose/gitea/docker-compose.yml.tpl", {
     gitea_version = var.gitea_version
@@ -162,7 +163,14 @@ resource "aws_s3_object" "compose" {
 
 # ----- EBS data volume -----
 
+moved {
+  from = aws_ebs_volume.data
+  to   = aws_ebs_volume.data[0]
+}
+
 resource "aws_ebs_volume" "data" {
+  count = var.data_volume_id == "" ? 1 : 0
+
   availability_zone = var.availability_zone
   size              = var.data_volume_size_gb
   type              = "gp3"
@@ -182,7 +190,7 @@ locals {
     admin_password_ssm_name = local.admin_password_ssm
     admin_token_ssm_name    = local.admin_api_token_ssm
     runner_token_ssm_name   = local.runner_token_ssm
-    data_volume_id_short    = trimprefix(aws_ebs_volume.data.id, "vol-")
+    data_volume_id_short    = trimprefix(local.data_volume_id, "vol-")
   })
 }
 
@@ -219,7 +227,7 @@ resource "aws_instance" "this" {
 
 resource "aws_volume_attachment" "data" {
   device_name = "/dev/sdf"
-  volume_id   = aws_ebs_volume.data.id
+  volume_id   = local.data_volume_id
   instance_id = aws_instance.this.id
 
   # When the instance replaces, detach the volume first.

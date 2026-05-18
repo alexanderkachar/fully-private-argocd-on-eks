@@ -162,6 +162,7 @@ module "gitea_server" {
   config_bucket_arn  = module.s3_config.bucket_arn
   backup_bucket_name = module.s3_backup.bucket_name
   backup_bucket_arn  = module.s3_backup.bucket_arn
+  data_volume_id     = var.gitea_data_volume_id
 
   alb_target_group_arn = module.alb_internal.gitea_target_group_arn
 }

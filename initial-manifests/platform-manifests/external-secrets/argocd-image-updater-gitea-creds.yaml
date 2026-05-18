@@ -1,4 +1,4 @@
-# ArgoCD Image Updater git write-back credentials.
+# ArgoCD Image Updater git write-back credentials for express-app.
 # The Application annotation references this secret:
 #   argocd-image-updater.argoproj.io/write-back-method: git:secret:argocd/argocd-image-updater-gitea-creds
 # Image Updater expects keys: username, password.
@@ -23,4 +23,4 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: /fp-argo/gitea/platform-deploy-token
+        key: /fp-argo/gitea/express-app-deploy-token

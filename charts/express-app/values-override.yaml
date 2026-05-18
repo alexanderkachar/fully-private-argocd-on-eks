@@ -1,5 +1,5 @@
 # Managed by ArgoCD Image Updater — do not edit manually.
 # This file is committed automatically when a new image tag is detected in ECR.
 image:
-  repository: "038526103886.dkr.ecr.us-east-1.amazonaws.com/fp-argo-dev-app"
-  tag: "93277dc26c5bb4ccbb7bafd10b50ab74f77f5df8"
+  repository: "APP_ECR_IMAGE_URI"
+  tag: "latest"

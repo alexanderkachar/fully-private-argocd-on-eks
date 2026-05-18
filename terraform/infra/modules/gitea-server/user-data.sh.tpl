@@ -11,7 +11,7 @@ ADMIN_TOKEN_SSM="${admin_token_ssm_name}"
 RUNNER_TOKEN_SSM="${runner_token_ssm_name}"
 
 dnf update -y
-dnf install -y docker awscli jq
+dnf install -y docker awscli jq unzip sqlite
 
 # Docker
 systemctl enable --now docker
@@ -55,6 +55,71 @@ if ! mountpoint -q /opt/gitea; then
 fi
 mkdir -p /opt/gitea/data
 chown -R 1000:1000 /opt/gitea/data
+
+cat > /usr/local/bin/gitea-restore-latest.sh <<'SCRIPT'
+#!/bin/bash
+set -euo pipefail
+BACKUP_BUCKET="__BACKUP_BUCKET__"
+REGION="__REGION__"
+data="/opt/gitea/data"
+workdir="/tmp/gitea-restore"
+backup="/tmp/gitea-restore.zip"
+
+latest_key=$(aws s3api list-objects-v2 \
+  --bucket "$BACKUP_BUCKET" \
+  --query 'reverse(sort_by(Contents,&LastModified))[0].Key' \
+  --output text \
+  --region "$REGION")
+
+if [[ -z "$latest_key" || "$latest_key" == "None" ]]; then
+  echo "No Gitea backup found in s3://$BACKUP_BUCKET; starting fresh."
+  exit 0
+fi
+
+echo "Restoring Gitea backup s3://$BACKUP_BUCKET/$latest_key"
+rm -rf "$workdir"
+mkdir -p "$workdir"
+aws s3 cp "s3://$BACKUP_BUCKET/$latest_key" "$backup" --region "$REGION"
+unzip -q "$backup" -d "$workdir"
+
+mkdir -p "$data/gitea/conf" "$data/git/repositories"
+
+if [[ -f "$workdir/gitea-app.ini" ]]; then
+  cp "$workdir/gitea-app.ini" "$data/gitea/conf/app.ini"
+fi
+
+if [[ -f "$workdir/gitea-db.sql" ]]; then
+  rm -f "$data/gitea/gitea.db"
+  sqlite3 "$data/gitea/gitea.db" < "$workdir/gitea-db.sql"
+fi
+
+if [[ -f "$workdir/gitea-repo.zip" ]]; then
+  rm -rf "$data/git/repositories"
+  mkdir -p "$data/git/repositories"
+  unzip -q "$workdir/gitea-repo.zip" -d "$data/git/repositories"
+fi
+
+if [[ -f "$workdir/gitea-lfs.zip" ]]; then
+  rm -rf "$data/git/lfs"
+  mkdir -p "$data/git/lfs"
+  unzip -q "$workdir/gitea-lfs.zip" -d "$data/git/lfs"
+fi
+
+if [[ -f "$workdir/gitea-attachments.zip" ]]; then
+  rm -rf "$data/gitea/attachments"
+  mkdir -p "$data/gitea/attachments"
+  unzip -q "$workdir/gitea-attachments.zip" -d "$data/gitea/attachments"
+fi
+
+chown -R 1000:1000 "$data"
+rm -rf "$workdir" "$backup"
+SCRIPT
+sed -i "s|__BACKUP_BUCKET__|$BACKUP_BUCKET|g; s|__REGION__|$REGION|g" /usr/local/bin/gitea-restore-latest.sh
+chmod 0755 /usr/local/bin/gitea-restore-latest.sh
+
+if [[ ! -f /opt/gitea/data/gitea/gitea.db ]]; then
+  /usr/local/bin/gitea-restore-latest.sh
+fi
 
 # Fetch the rendered docker-compose file.
 mkdir -p /opt/gitea/compose

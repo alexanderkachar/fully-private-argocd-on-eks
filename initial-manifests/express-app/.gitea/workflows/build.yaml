@@ -9,6 +9,10 @@ on:
       - "chart/**"
       - ".gitea/workflows/build.yaml"
 
+env:
+  # AWS_REGION is replaced by bootstrap-gitea.sh before push.
+  AWS_REGION: AWS_REGION
+
 jobs:
   build:
     runs-on: ubuntu-latest

@@ -51,6 +51,12 @@ variable "data_volume_size_gb" {
   default     = 20
 }
 
+variable "data_volume_id" {
+  description = "Existing Gitea data EBS volume ID to attach instead of creating a new volume."
+  type        = string
+  default     = ""
+}
+
 variable "gitea_version" {
   description = "Gitea container image tag."
   type        = string

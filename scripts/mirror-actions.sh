@@ -42,6 +42,12 @@ if ! TOKEN_SSM_NAME=$(terraform -chdir="$INFRA_DIR" output -raw gitea_admin_api_
   exit 1
 fi
 
+AWS_REGION=$(terraform -chdir="$INFRA_DIR" output -raw region 2>/dev/null || true)
+if [[ -z "$AWS_REGION" ]]; then
+  AWS_REGION=$(aws configure get region 2>/dev/null || true)
+fi
+AWS_REGION="${AWS_REGION:-us-east-1}"
+
 GITEA_URL="https://${GITEA_HOSTNAME}"
 ACTIONS_ORG="actions"
 
@@ -55,6 +61,7 @@ echo "Reading admin API token from SSM (${TOKEN_SSM_NAME})…"
 ADMIN_TOKEN=$(aws ssm get-parameter \
   --name "${TOKEN_SSM_NAME}" \
   --with-decryption \
+  --region "${AWS_REGION}" \
   --query 'Parameter.Value' \
   --output text)
 
