@@ -18,6 +18,11 @@ output "services_subnet_ids" {
   value       = [aws_subnet.this["services_a"].id, aws_subnet.this["services_b"].id]
 }
 
+output "services_subnet_azs" {
+  description = "Availability zones for the services subnets, ordered [AZ-a, AZ-b]. Consumed by gitea-server to place the persistent EBS volume in the matching AZ."
+  value       = [aws_subnet.this["services_a"].availability_zone, aws_subnet.this["services_b"].availability_zone]
+}
+
 output "private_subnet_ids" {
   description = "Private (cluster) subnet IDs, ordered [AZ-a, AZ-b]."
   value       = [aws_subnet.this["private_a"].id, aws_subnet.this["private_b"].id]

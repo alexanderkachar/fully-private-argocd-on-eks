@@ -2,7 +2,6 @@ locals {
   cluster_name              = "${var.project_name}-${var.environment}-cluster"
   app_ecr_repository_name   = "${var.project_name}-${var.environment}-app"
   chart_ecr_repository_name = "express-app"
-  pat_ssm_parameter_name    = "/${var.project_name}/github/pat"
 }
 
 module "vpc" {
@@ -114,22 +113,55 @@ module "alb_internal" {
   gitea_hostname            = module.route53.gitea_hostname
 }
 
-module "runner" {
-  source = "../../modules/runner"
+module "s3_config" {
+  source = "../../modules/s3-config"
 
-  project_name     = var.project_name
-  environment      = var.environment
-  vpc_id           = module.vpc.vpc_id
-  vpc_cidr         = module.vpc.vpc_cidr
-  runner_subnet_id = module.vpc.services_subnet_ids[0]
+  project_name = var.project_name
+  environment  = var.environment
+}
 
-  github_owner           = var.github_owner
-  github_repo            = var.github_repo
-  pat_ssm_parameter_name = local.pat_ssm_parameter_name
+module "s3_backup" {
+  source = "../../modules/s3-backup"
 
-  ecr_repository_arns     = values(module.ecr.repository_arns)
-  route53_hosted_zone_arn = module.route53.public_hosted_zone_arn
+  project_name = var.project_name
+  environment  = var.environment
+}
 
+module "gitea_server" {
+  source = "../../modules/gitea-server"
+
+  project_name      = var.project_name
+  environment       = var.environment
+  vpc_id            = module.vpc.vpc_id
+  vpc_cidr          = module.vpc.vpc_cidr
+  vpn_client_cidr   = module.vpn.client_cidr_block
+  subnet_id         = module.vpc.services_subnet_ids[0]
+  availability_zone = module.vpc.services_subnet_azs[0]
+
+  gitea_hostname     = module.route53.gitea_hostname
+  config_bucket_name = module.s3_config.bucket_name
+  config_bucket_arn  = module.s3_config.bucket_arn
+  backup_bucket_name = module.s3_backup.bucket_name
+  backup_bucket_arn  = module.s3_backup.bucket_arn
+
+  alb_target_group_arn = module.alb_internal.gitea_target_group_arn
+}
+
+module "gitea_runner" {
+  source = "../../modules/gitea-runner"
+
+  project_name = var.project_name
+  environment  = var.environment
+  vpc_id       = module.vpc.vpc_id
+  vpc_cidr     = module.vpc.vpc_cidr
+  subnet_id    = module.vpc.services_subnet_ids[1]
+
+  gitea_instance_url    = "https://${module.route53.gitea_hostname}"
+  config_bucket_name    = module.s3_config.bucket_name
+  config_bucket_arn     = module.s3_config.bucket_arn
+  runner_token_ssm_name = module.gitea_server.runner_token_ssm_name
+
+  ecr_repository_arns       = values(module.ecr.repository_arns)
   cluster_name              = module.eks.cluster_name
   cluster_arn               = module.eks.cluster_arn
   cluster_security_group_id = module.eks.cluster_security_group_id

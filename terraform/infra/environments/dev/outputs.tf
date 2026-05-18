@@ -78,26 +78,42 @@ output "vpn_associated" {
   value       = module.vpn.associated
 }
 
-output "github_actions_variables" {
-  description = "GitHub Actions repository variables expected by deployment workflows."
-  value = {
-    AWS_REGION                = var.region
-    EKS_CLUSTER_NAME          = module.eks.cluster_name
-    VPC_ID                    = module.vpc.vpc_id
-    APP_ECR_REPOSITORY        = local.app_ecr_repository_name
-    HELM_CHART_ECR_REPOSITORY = local.chart_ecr_repository_name
-    APP_HOSTNAME              = module.route53.app_hostname
-    APP_TARGET_GROUP_ARN      = module.alb_public.target_group_arn
-    GRAFANA_HOSTNAME          = module.route53.grafana_hostname
-  }
+output "gitea_admin_username" {
+  description = "Gitea admin username."
+  value       = module.gitea_server.admin_username
 }
 
-output "runner_pat_put_command" {
-  description = "Copy-paste command to seed the GitHub PAT into SSM for runner registration. Replace ghp_xxx with your actual token."
-  value       = module.runner.runner_pat_put_command
+output "gitea_admin_password_ssm_name" {
+  description = "SSM parameter name holding the Gitea admin password."
+  value       = module.gitea_server.admin_password_ssm_name
 }
 
-output "runner_ssm_session_command" {
-  description = "Copy-paste command to start an SSM session into the GitHub Actions runner for debugging."
-  value       = module.runner.ssm_session_command
+output "gitea_admin_api_token_ssm_name" {
+  description = "SSM parameter name where the Gitea admin API token is stored after first boot."
+  value       = module.gitea_server.admin_api_token_ssm_name
+}
+
+output "gitea_runner_token_ssm_name" {
+  description = "SSM parameter name holding the runner registration token."
+  value       = module.gitea_server.runner_token_ssm_name
+}
+
+output "gitea_server_ssm_session_command" {
+  description = "Copy-paste command to start an SSM session into the Gitea server."
+  value       = module.gitea_server.ssm_session_command
+}
+
+output "gitea_runner_ssm_session_command" {
+  description = "Copy-paste command to start an SSM session into the Gitea runner."
+  value       = module.gitea_runner.ssm_session_command
+}
+
+output "gitea_config_bucket" {
+  description = "S3 bucket holding the rendered docker-compose templates."
+  value       = module.s3_config.bucket_name
+}
+
+output "gitea_backup_bucket" {
+  description = "S3 bucket where the daily Gitea dump cron writes."
+  value       = module.s3_backup.bucket_name
 }
