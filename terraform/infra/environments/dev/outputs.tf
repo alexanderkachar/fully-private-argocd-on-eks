@@ -48,6 +48,11 @@ output "gitea_target_group_arn" {
   value       = module.alb_internal.gitea_target_group_arn
 }
 
+output "ecr_registry_url" {
+  description = "ECR registry URL prefix (account.dkr.ecr.region.amazonaws.com). Used by scripts/mirror-images.sh."
+  value       = module.ecr.registry_url
+}
+
 output "app_ecr_image_uri" {
   description = "Full ECR image URI for the Express app (without tag). Required by dev-platform for Image Updater."
   value       = "${module.ecr.registry_url}/${local.app_ecr_repository_name}"

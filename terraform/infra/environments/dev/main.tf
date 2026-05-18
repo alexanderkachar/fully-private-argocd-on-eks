@@ -1,7 +1,27 @@
 locals {
   cluster_name              = "${var.project_name}-${var.environment}-cluster"
   app_ecr_repository_name   = "${var.project_name}-${var.environment}-app"
-  chart_ecr_repository_name = "express-app"
+
+  # Mirror repositories — one ECR repo per third-party image in scripts/images.yaml.
+  # Names must match the `dest` field in that file.
+  mirror_ecr_repository_names = [
+    "argocd",
+    "argocd-image-updater",
+    "aws-load-balancer-controller",
+    "dex",
+    "external-secrets",
+    "grafana",
+    "k8s-sidecar",
+    "kube-state-metrics",
+    "kube-webhook-certgen",
+    "loki",
+    "nginx-unprivileged",
+    "node-exporter",
+    "prometheus",
+    "prometheus-operator",
+    "promtail",
+    "redis",
+  ]
 }
 
 module "vpc" {
@@ -38,10 +58,10 @@ module "ecr" {
 
   project_name = var.project_name
   environment  = var.environment
-  repository_names = [
-    local.app_ecr_repository_name,
-    local.chart_ecr_repository_name,
-  ]
+  repository_names = concat(
+    [local.app_ecr_repository_name],
+    local.mirror_ecr_repository_names,
+  )
 }
 
 module "route53" {

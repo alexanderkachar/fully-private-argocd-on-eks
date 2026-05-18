@@ -1,0 +1,84 @@
+# Declarative mirror manifest — every third-party image the platform pulls.
+# Run scripts/mirror-images.sh to sync all entries into ECR.
+# Run scripts/discover-images.sh after bumping chart versions to regenerate draft entries.
+#
+# dest: ECR repository name (no registry prefix, no tag)
+# tag:  exact tag to mirror
+
+images:
+  # --- ArgoCD (chart 7.8.23, appVersion v2.14.9) ---
+  - source: quay.io/argoproj/argocd:v2.14.9
+    dest: argocd
+    tag: v2.14.9
+
+  - source: ghcr.io/dexidp/dex:v2.42.0
+    dest: dex
+    tag: v2.42.0
+
+  - source: public.ecr.aws/docker/library/redis:7.4.2-alpine
+    dest: redis
+    tag: 7.4.2-alpine
+
+  # --- ArgoCD Image Updater (chart 0.12.1, appVersion v0.16.0) ---
+  - source: quay.io/argoprojlabs/argocd-image-updater:v0.16.0
+    dest: argocd-image-updater
+    tag: v0.16.0
+
+  # --- AWS Load Balancer Controller (chart 1.13.0, appVersion v2.13.0) ---
+  - source: public.ecr.aws/eks/aws-load-balancer-controller:v2.13.0
+    dest: aws-load-balancer-controller
+    tag: v2.13.0
+
+  # --- External Secrets Operator (chart 0.14.0, appVersion v0.14.0) ---
+  - source: oci.external-secrets.io/external-secrets/external-secrets:v0.14.0
+    dest: external-secrets
+    tag: v0.14.0
+
+  # --- kube-prometheus-stack (chart 84.5.0) ---
+  - source: quay.io/prometheus/prometheus:v3.11.3
+    dest: prometheus
+    tag: v3.11.3
+
+  - source: quay.io/prometheus-operator/prometheus-operator:v0.90.1
+    dest: prometheus-operator
+    tag: v0.90.1
+
+  - source: quay.io/prometheus/node-exporter:v1.11.1
+    dest: node-exporter
+    tag: v1.11.1
+
+  - source: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.18.0
+    dest: kube-state-metrics
+    tag: v2.18.0
+
+  - source: quay.io/kiwigrid/k8s-sidecar:2.7.1
+    dest: k8s-sidecar
+    tag: 2.7.1
+
+  - source: ghcr.io/jkroepke/kube-webhook-certgen:1.8.2
+    dest: kube-webhook-certgen
+    tag: 1.8.2
+
+  # --- Grafana (bundled in kube-prometheus-stack) ---
+  - source: docker.io/grafana/grafana:13.0.1
+    dest: grafana
+    tag: 13.0.1
+
+  # --- Loki (chart 7.0.0, appVersion 3.6.7) ---
+  - source: docker.io/grafana/loki:3.6.7
+    dest: loki
+    tag: 3.6.7
+
+  - source: docker.io/nginxinc/nginx-unprivileged:1.29-alpine
+    dest: nginx-unprivileged
+    tag: 1.29-alpine
+
+  # --- Promtail (chart 6.17.1, appVersion 3.5.1) ---
+  - source: docker.io/grafana/promtail:3.5.1
+    dest: promtail
+    tag: 3.5.1
+
+  # --- Express app (built by Gitea Actions CI; mirrored separately) ---
+  # Repository fp-argo-dev-app is created in the ecr module as the app repo.
+  # It is not listed here because mirror-images.sh does not manage it —
+  # the Gitea Actions workflow pushes directly to it.
