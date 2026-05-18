@@ -2,7 +2,7 @@ data "terraform_remote_state" "infra" {
   backend = "s3"
   config = {
     bucket = "alexanderkachar-terraform-state"
-    key    = "eks-portfolio-project-charlie/infra/dev/terraform.tfstate"
+    key    = "fully-private-argocd-on-eks/infra/dev/terraform.tfstate"
     region = "us-east-1"
   }
 }

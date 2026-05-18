@@ -1,3 +1,3 @@
 github_owner = "alexanderkachar"
-github_repo  = "eks-portfolio-project-charlie"
-pat_ssm_parameter_name = "/project-charlie/github/pat"
+github_repo  = "fully-private-argocd-on-eks"
+pat_ssm_parameter_name = "/fp-argo/github/pat"

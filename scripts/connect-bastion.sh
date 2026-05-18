@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-NAME_TAG="${BASTION_NAME:-project-charlie-dev-bastion}"
+NAME_TAG="${BASTION_NAME:-fp-argo-dev-bastion}"
 REGION="${AWS_REGION:-us-east-1}"
 
 INSTANCE_ID=$(aws ec2 describe-instances \

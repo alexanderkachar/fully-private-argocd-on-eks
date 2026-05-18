@@ -1,5 +1,5 @@
 {
-  "name": "eks-portfolio-project-charlie-app",
+  "name": "fully-private-argocd-on-eks-app",
   "version": "1.0.0",
   "description": "Simple Express Hello World app",
   "main": "server.js",

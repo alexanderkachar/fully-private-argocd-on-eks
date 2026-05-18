@@ -1,34 +1,28 @@
-# ArgoCD on EKS platform
+# Fully Private ArgoCD on EKS
 
-An end-to-end Amazon EKS platform with private cluster networking, GitOps-driven deployments via ArgoCD, and a self-contained CI runner — provisioned entirely with Terraform.
+A fully private Amazon EKS platform: the cluster is airgapped from the public internet, CI/CD lives inside the VPC on self-hosted Gitea, and operator access is gated through AWS Client VPN. The deployed Express application is the only resource reachable from the public internet, via a separate public-facing ALB.
 
-## Architecture
+This project is a refactor of [eks-portfolio-project-charlie](https://github.com/alexanderkachar/eks-portfolio-project-charlie). It keeps the GitOps and observability story, swaps GitHub for self-hosted Gitea, makes the cluster airgapped (VPC endpoints, no NAT egress from cluster nodes), and gates operator access behind VPN.
 
-The VPC spans two AZs with four subnet tiers — public (ALB, NAT), private (EKS nodes and pods), runner (self-hosted runner, bastion), and DB (reserved). A single NAT Gateway in the public-A subnet provides egress for the private and runner tiers. The EKS API endpoint is private-only; the control plane is unreachable from the internet.
+## Operator model
 
-## Repository Structure
+Portfolio project, not a long-running service. Expected lifecycle: spin up for a working session, `terraform destroy` at end of session, persistent state preserved on EBS and backed up to S3.
 
-`app/` — the Node.js/Express application, Dockerfile, and `docker-compose.yml` for local runs.
+- Cold-start target: 15-20 minutes
+- Teardown target: 5 minutes
 
-`charts/express-app/` — Helm chart for the application, including `TargetGroupBinding` for ALB registration. `values-override.yaml` is managed by ArgoCD Image Updater.
+## Quick start
 
-`charts/argocd/` — ArgoCD `Application` manifests and the git credentials secret.
+```bash
+make spin-up        # bring up infra + platform from scratch
+make teardown-soft  # destroy compute, preserve Gitea EBS + S3 backups
+make teardown-hard  # destroy everything including EBS (uses S3 backup to restore)
+make restore        # restore Gitea state from S3 (invoked automatically by spin-up when needed)
+```
 
-`charts/observability/` — umbrella chart pulling in kube-prometheus-stack, Loki, and Promtail, plus a Grafana dashboard ConfigMap.
+## Documentation
 
-`terraform/infra/` — VPC, EKS, ECR, ALB, Route 53, IAM/OIDC, bastion, and self-hosted runner modules.
-
-`terraform/platform/` — in-cluster platform layer: ArgoCD and the observability stack.
-
-`.github/workflows/deploy-app.yml` — builds the app image on the self-hosted runner and pushes to ECR. The cluster is never contacted from CI; ArgoCD reconciles from git.
-
-`scripts/connect-bastion.sh` — SSM Session Manager entry point to the bastion.
-
-## GitOps Flow
-
-1. Push to `main` triggers `deploy-app.yml` on the self-hosted runner.
-2. Runner builds and pushes `…/project-charlie-dev-app:<sha>` to ECR.
-3. ArgoCD Image Updater detects the new tag (`newest-build` strategy) and commits `image.tag` to `charts/express-app/values-override.yaml`.
-4. ArgoCD detects the commit and reconciles the cluster — sync, prune, and self-heal are all enabled.
-
-Git is the single source of truth for cluster state.
+- [CLAUDE.md](CLAUDE.md) — full project plan and phase-by-phase implementation guide
+- `docs/architecture.md` — detailed architecture write-up (Phase 8)
+- `docs/runbook.md` — operational procedures (Phase 8)
+- `docs/decisions/` — ADR-style records of key choices (Phase 8)

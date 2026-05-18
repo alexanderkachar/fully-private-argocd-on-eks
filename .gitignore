@@ -11,3 +11,5 @@ dist/
 crash.log
 .DS_Store
 .env
+CLAUDE.md
+Makefile
