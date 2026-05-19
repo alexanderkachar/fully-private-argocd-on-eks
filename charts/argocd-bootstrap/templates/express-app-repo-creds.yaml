@@ -1,0 +1,27 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: {{ .Values.expressAppRepoCredentials.secretName | quote }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-ssm
+    kind: ClusterSecretStore
+  target:
+    name: {{ .Values.expressAppRepoCredentials.secretName | quote }}
+    creationPolicy: Owner
+    template:
+      type: Opaque
+      metadata:
+        labels:
+          argocd.argoproj.io/secret-type: repository
+      data:
+        type: git
+        url: {{ required "expressAppRepoCredentials.repoURL is required" .Values.expressAppRepoCredentials.repoURL | quote }}
+        username: {{ required "expressAppRepoCredentials.username is required" .Values.expressAppRepoCredentials.username | quote }}
+        password: {{ printf "{{ .password }}" | quote }}
+  data:
+    - secretKey: password
+      remoteRef:
+        key: {{ required "expressAppRepoCredentials.tokenSsmParameter is required" .Values.expressAppRepoCredentials.tokenSsmParameter | quote }}

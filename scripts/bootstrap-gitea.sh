@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# bootstrap-gitea.sh — populate Gitea with the two repos ArgoCD consumes.
+# bootstrap-gitea.sh — populate Gitea with the single express-app repo ArgoCD consumes.
+#
+# Per CLAUDE.md: Terraform owns the platform, Gitea owns only the app.
+# There is no platform-manifests repo; ArgoCD watches exactly one Application.
 #
 # Runs from operator laptop with VPN connected and AWS credentials active.
 # Idempotent: org and repo creation are skipped when they already exist.
@@ -36,12 +39,10 @@ TOKEN_SSM_NAME=$(tf_output gitea_admin_api_token_ssm_name)
 AWS_REGION=$(tf_output region)
 ECR_REGISTRY=$(tf_output ecr_registry_url)
 APP_ECR_IMAGE_URI=$(tf_output app_ecr_image_uri)
-GRAFANA_TG_ARN=$(tf_output grafana_target_group_arn)
 APP_TG_ARN=$(tf_output app_target_group_arn)
 
 GITEA_URL="https://${GITEA_HOSTNAME}"
 GITEA_ORG="fp-argo"
-PLATFORM_MANIFESTS_URL="${GITEA_URL}/${GITEA_ORG}/platform-manifests.git"
 EXPRESS_APP_URL="${GITEA_URL}/${GITEA_ORG}/express-app.git"
 
 echo "Gitea URL              : ${GITEA_URL}"
@@ -50,7 +51,6 @@ echo "Org                    : ${GITEA_ORG}"
 echo "AWS region             : ${AWS_REGION}"
 echo "ECR registry           : ${ECR_REGISTRY}"
 echo "App ECR image URI      : ${APP_ECR_IMAGE_URI}"
-echo "Grafana target group   : ${GRAFANA_TG_ARN}"
 echo "App target group       : ${APP_TG_ARN}"
 echo ""
 
@@ -106,7 +106,7 @@ case "$status" in
   *)   echo "ERROR: unexpected status $status creating org." >&2; exit 1 ;;
 esac
 
-# ---------- 2. create repos ----------
+# ---------- 2. create express-app repo ----------
 
 create_repo() {
   local repo="$1"
@@ -120,49 +120,29 @@ create_repo() {
   esac
 }
 
-create_repo "platform-manifests"
 create_repo "express-app"
 echo ""
 
-# ---------- 3. build staged working trees with substitutions ----------
+# ---------- 3. stage and push express-app content ----------
 #
-# The initial-manifests/ directory contains placeholder tokens that must be
-# replaced with live values from Terraform outputs before pushing to Gitea.
-# This function:
-#   a) copies the source directory into a temp location,
-#   b) runs sed substitutions on all text files in place,
-#   c) optionally copies additional directories (charts, app source),
-# then returns the temp dir path to the caller.
+# The express-app repo contains:
+#   app/                — Node source + Dockerfile (from REPO_ROOT/app)
+#   chart/              — Helm chart (from REPO_ROOT/charts/express-app)
+#   .gitea/workflows/   — build pipeline (from REPO_ROOT/initial-manifests/express-app)
+# Placeholder tokens in any text file are replaced with live Terraform output values.
 
 substitute_placeholders() {
   local staged="$1"
-  # Substitute all placeholders in one pass over every text file.
-  # We use find + sed to avoid touching binary files (chart tarballs).
   while IFS= read -r -d '' f; do
     sed -i \
-      -e "s|GITEA_PLATFORM_MANIFESTS_URL|${PLATFORM_MANIFESTS_URL}|g" \
-      -e "s|GITEA_EXPRESS_APP_URL|${EXPRESS_APP_URL}|g" \
       -e "s|AWS_REGION|${AWS_REGION}|g" \
       -e "s|ECR_REGISTRY|${ECR_REGISTRY}|g" \
       -e "s|APP_ECR_IMAGE_URI|${APP_ECR_IMAGE_URI}|g" \
-      -e "s|GITEA_GRAFANA_TARGET_GROUP_ARN|${GRAFANA_TG_ARN}|g" \
       -e "s|GITEA_APP_TARGET_GROUP_ARN|${APP_TG_ARN}|g" \
+      -e "s|GITEA_EXPRESS_APP_URL|${EXPRESS_APP_URL}|g" \
       "$f"
   done < <(find "$staged" -type f -not -path '*/.git/*' -not -name '*.tgz' -not -name '*.gz' -print0)
 }
-
-build_staged_tree() {
-  local src_dir="$1"
-  local staged
-  staged=$(mktemp -d)
-
-  rsync -a --exclude='.git' "${src_dir}/" "${staged}/"
-  substitute_placeholders "$staged"
-
-  echo "$staged"
-}
-
-# ---------- 4. push initial content ----------
 
 push_content() {
   local repo="$1"
@@ -205,38 +185,24 @@ push_content() {
   trap - RETURN
 }
 
-# ---------- platform-manifests ----------
-
-echo "=== platform-manifests ==="
-pm_staged=$(build_staged_tree "${REPO_ROOT}/initial-manifests/platform-manifests")
-# Observability umbrella chart: copy from local charts/observability/ into the
-# platform-manifests staged tree so ArgoCD can sync it without public Helm access.
-mkdir -p "${pm_staged}/observability/chart"
-rsync -a --exclude='.git' "${REPO_ROOT}/charts/observability/" "${pm_staged}/observability/chart/"
-substitute_placeholders "$pm_staged"
-push_content "platform-manifests" "$pm_staged"
-rm -rf "$pm_staged"
-echo ""
-
-# ---------- express-app ----------
-
 echo "=== express-app ==="
-ea_staged=$(build_staged_tree "${REPO_ROOT}/initial-manifests/express-app")
-# App source code
-rsync -a --exclude='.git' "${REPO_ROOT}/app/" "${ea_staged}/app/"
-# Helm chart for the app
-rsync -a --exclude='.git' "${REPO_ROOT}/charts/express-app/" "${ea_staged}/chart/"
+ea_staged=$(mktemp -d)
+rsync -a --exclude='.git' "${REPO_ROOT}/initial-manifests/express-app/" "${ea_staged}/"
+rsync -a --exclude='.git' "${REPO_ROOT}/app/"                          "${ea_staged}/app/"
+rsync -a --exclude='.git' "${REPO_ROOT}/charts/express-app/"           "${ea_staged}/chart/"
 substitute_placeholders "$ea_staged"
 push_content "express-app" "$ea_staged"
 rm -rf "$ea_staged"
 echo ""
 
-# ---------- 5. create access tokens and store in SSM ----------
+# ---------- 4. create access tokens and store in SSM ----------
 #
-# Gitea 1.22 fine-grained PATs. Created via POST /users/{username}/tokens.
-# ArgoCD and Image Updater authenticate as the admin user over HTTPS.
-# Token values are returned only at creation time — if the token already exists
-# the Gitea API returns 422 and the SSM write is skipped (existing value preserved).
+# Two tokens — distinct so we can rotate independently and follow least-privilege:
+#   - argocd-express-app-deploy  (repository:read)  — used by ArgoCD to fetch the chart
+#   - argocd-express-app-writer  (repository:read+write) — used by Image Updater to commit values-override.yaml
+#
+# Gitea 1.22 fine-grained PATs. POST /users/{username}/tokens returns sha1 only at creation.
+# If the token already exists Gitea returns 422; we preserve any existing SSM value.
 
 create_access_token() {
   local token_name="$1"
@@ -281,16 +247,14 @@ create_access_token() {
   fi
 }
 
-# platform-manifests token: read + write (Image Updater writes back commits)
 create_access_token \
-  "argocd-image-updater" \
-  "/fp-argo/gitea/platform-deploy-token" \
-  '["repository:read","repository:write"]'
-
-# express-app token: read + write (ArgoCD reads the chart; Image Updater writes values-override.yaml)
-create_access_token \
-  "argocd-express-app" \
+  "argocd-express-app-deploy" \
   "/fp-argo/gitea/express-app-deploy-token" \
+  '["repository:read"]'
+
+create_access_token \
+  "argocd-express-app-writer" \
+  "/fp-argo/gitea/express-app-writer-token" \
   '["repository:read","repository:write"]'
 
 echo ""

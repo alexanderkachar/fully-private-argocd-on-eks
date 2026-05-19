@@ -11,3 +11,4 @@ crash.log
 .DS_Store
 .env
 .state/
+CLAUDE.md

@@ -24,19 +24,36 @@ variable "argocd_target_group_arn" {
   type        = string
 }
 
-variable "platform_manifests_repo_url" {
-  description = "Gitea HTTPS clone URL for the platform-manifests repository."
+variable "app_target_group_arn" {
+  description = "Public ALB target group ARN for the express-app TargetGroupBinding (passed as a Helm parameter on the Application)."
+  type        = string
+}
+
+variable "express_app_repo_url" {
+  description = "Gitea HTTPS clone URL for the express-app repository (e.g. https://gitea.example.com/fp-argo/express-app.git)."
+  type        = string
+}
+
+variable "app_ecr_image_uri" {
+  description = "Full ECR image URI (without tag) for the express app — consumed by Image Updater's image-list annotation."
   type        = string
 }
 
 variable "gitea_username" {
-  description = "Gitea username used by ArgoCD repository credentials."
+  description = "Gitea username used by ArgoCD and Image Updater for repo authentication."
   type        = string
 }
 
-variable "platform_deploy_token_ssm_name" {
-  description = "SSM parameter name holding the platform-manifests deploy token."
+variable "express_app_deploy_token_ssm_name" {
+  description = "SSM parameter name holding the read-only Gitea token ArgoCD uses to fetch the express-app chart."
   type        = string
+  default     = "/fp-argo/gitea/express-app-deploy-token"
+}
+
+variable "express_app_writer_token_ssm_name" {
+  description = "SSM parameter name holding the read+write Gitea token Image Updater uses to commit values-override.yaml back to the express-app repo."
+  type        = string
+  default     = "/fp-argo/gitea/express-app-writer-token"
 }
 
 variable "application_controller_role_arn" {

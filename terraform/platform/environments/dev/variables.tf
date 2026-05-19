@@ -5,13 +5,19 @@ variable "region" {
 }
 
 variable "gitea_org" {
-  description = "Gitea organization containing the platform-manifests repository."
+  description = "Gitea organization containing the express-app repository."
   type        = string
   default     = "fp-argo"
 }
 
-variable "platform_deploy_token_ssm_name" {
-  description = "SSM parameter name holding the platform-manifests deploy token created by bootstrap-gitea.sh."
+variable "express_app_deploy_token_ssm_name" {
+  description = "SSM parameter name holding the read-only Gitea token ArgoCD uses to fetch the express-app chart. Created by bootstrap-gitea.sh."
   type        = string
-  default     = "/fp-argo/gitea/platform-deploy-token"
+  default     = "/fp-argo/gitea/express-app-deploy-token"
+}
+
+variable "express_app_writer_token_ssm_name" {
+  description = "SSM parameter name holding the read+write Gitea token Image Updater uses to commit values-override.yaml. Created by bootstrap-gitea.sh."
+  type        = string
+  default     = "/fp-argo/gitea/express-app-writer-token"
 }

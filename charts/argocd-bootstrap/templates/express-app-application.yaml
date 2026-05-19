@@ -1,0 +1,43 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ .Values.expressAppApplication.name | quote }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    # Image Updater watches the app ECR repo and writes the new tag back into
+    # chart/values-override.yaml in the express-app repo on Gitea.
+    argocd-image-updater.argoproj.io/image-list: {{ printf "app=%s" (required "expressAppApplication.imageList is required" .Values.expressAppApplication.imageList) | quote }}
+    argocd-image-updater.argoproj.io/app.update-strategy: newest-build
+    argocd-image-updater.argoproj.io/app.helm.image-name: image.repository
+    argocd-image-updater.argoproj.io/app.helm.image-tag: image.tag
+    argocd-image-updater.argoproj.io/write-back-method: {{ printf "git:secret:%s/%s" .Release.Namespace .Values.imageUpdaterCredentials.secretName | quote }}
+    argocd-image-updater.argoproj.io/git-branch: main
+    argocd-image-updater.argoproj.io/write-back-target: "helmvalues:chart/values-override.yaml"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: {{ required "expressAppApplication.repoURL is required" .Values.expressAppApplication.repoURL | quote }}
+    targetRevision: {{ .Values.expressAppApplication.targetRevision | quote }}
+    path: {{ .Values.expressAppApplication.path | quote }}
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-override.yaml
+      parameters:
+        - name: targetGroupBinding.enabled
+          value: "true"
+        - name: targetGroupBinding.targetGroupArn
+          value: {{ required "expressAppApplication.appTargetGroupArn is required" .Values.expressAppApplication.appTargetGroupArn | quote }}
+        - name: targetGroupBinding.targetType
+          value: ip
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.expressAppApplication.destinationNamespace | quote }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

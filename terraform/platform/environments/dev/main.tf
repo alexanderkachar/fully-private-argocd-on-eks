@@ -8,7 +8,7 @@ data "terraform_remote_state" "infra" {
 }
 
 locals {
-  platform_manifests_repo_url = "https://${local.infra.gitea_hostname}/${var.gitea_org}/platform-manifests.git"
+  express_app_repo_url = "https://${local.infra.gitea_hostname}/${var.gitea_org}/express-app.git"
 }
 
 module "aws_lb_controller" {
@@ -30,18 +30,32 @@ module "external_secrets" {
   pod_identity_role_arn = local.infra.external_secrets_role_arn
 }
 
+module "observability" {
+  source = "../../modules/observability"
+
+  ecr_registry_url         = local.infra.ecr_registry_url
+  grafana_target_group_arn = local.infra.grafana_target_group_arn
+
+  depends_on = [
+    module.aws_lb_controller,
+  ]
+}
+
 module "argocd" {
   source = "../../modules/argocd"
 
-  cluster_name                    = local.infra.cluster_name
-  region                          = var.region
-  ecr_registry_url                = local.infra.ecr_registry_url
-  argocd_target_group_arn         = local.infra.argocd_target_group_arn
-  platform_manifests_repo_url     = local.platform_manifests_repo_url
-  gitea_username                  = local.infra.gitea_admin_username
-  platform_deploy_token_ssm_name  = var.platform_deploy_token_ssm_name
-  application_controller_role_arn = local.infra.argocd_application_controller_role_arn
-  image_updater_role_arn          = local.infra.argocd_image_updater_role_arn
+  cluster_name                      = local.infra.cluster_name
+  region                            = var.region
+  ecr_registry_url                  = local.infra.ecr_registry_url
+  argocd_target_group_arn           = local.infra.argocd_target_group_arn
+  app_target_group_arn              = local.infra.app_target_group_arn
+  express_app_repo_url              = local.express_app_repo_url
+  app_ecr_image_uri                 = local.infra.app_ecr_image_uri
+  gitea_username                    = local.infra.gitea_admin_username
+  express_app_deploy_token_ssm_name = var.express_app_deploy_token_ssm_name
+  express_app_writer_token_ssm_name = var.express_app_writer_token_ssm_name
+  application_controller_role_arn   = local.infra.argocd_application_controller_role_arn
+  image_updater_role_arn            = local.infra.argocd_image_updater_role_arn
 
   depends_on = [
     module.aws_lb_controller,

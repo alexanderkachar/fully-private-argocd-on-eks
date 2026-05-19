@@ -1,0 +1,5 @@
+apiVersion: v2
+name: argocd-bootstrap
+description: Post-install glue for ArgoCD — TargetGroupBinding, Gitea repo creds, and the single express-app Application CRD.
+type: application
+version: 0.4.0

@@ -1,5 +1,7 @@
 locals {
-  image_updater_service_account = "argocd-image-updater"
+  image_updater_service_account  = "argocd-image-updater"
+  image_updater_writeback_secret = "argocd-image-updater-gitea-creds"
+  express_app_repo_secret        = "argocd-express-app-creds"
 }
 
 resource "aws_eks_pod_identity_association" "application_controller" {
@@ -69,40 +71,6 @@ resource "helm_release" "argocd" {
   depends_on = [aws_eks_pod_identity_association.application_controller]
 }
 
-resource "helm_release" "argocd_bootstrap" {
-  name      = "argocd-bootstrap"
-  chart     = "${path.module}/../../../../charts/argocd"
-  namespace = var.namespace
-  wait      = true
-  timeout   = 120
-
-  values = [
-    yamlencode({
-      targetGroupBinding = {
-        targetGroupArn = var.argocd_target_group_arn
-        targetType     = "ip"
-        port           = 80
-      }
-
-      repoCredentials = {
-        secretName        = "argocd-gitea-creds"
-        repoURL           = var.platform_manifests_repo_url
-        username          = var.gitea_username
-        tokenSsmParameter = var.platform_deploy_token_ssm_name
-      }
-
-      rootApplication = {
-        name           = "root"
-        repoURL        = var.platform_manifests_repo_url
-        targetRevision = "main"
-        path           = "apps"
-      }
-    }),
-  ]
-
-  depends_on = [helm_release.argocd]
-}
-
 resource "aws_eks_pod_identity_association" "image_updater" {
   cluster_name    = var.cluster_name
   namespace       = var.namespace
@@ -155,6 +123,57 @@ resource "helm_release" "image_updater" {
 
   depends_on = [
     aws_eks_pod_identity_association.image_updater,
-    helm_release.argocd_bootstrap,
+    helm_release.argocd,
+  ]
+}
+
+# Post-install glue: TargetGroupBinding for the internal ALB, the two
+# ExternalSecrets that materialize Gitea tokens from SSM, and the single
+# express-app Application CRD. Depends on Image Updater so the writeback
+# secret name aligns with a running controller, and on ArgoCD itself so the
+# Application CRD is installed.
+resource "helm_release" "argocd_bootstrap" {
+  name      = "argocd-bootstrap"
+  chart     = "${path.module}/../../../../charts/argocd-bootstrap"
+  namespace = var.namespace
+  wait      = true
+  timeout   = 300
+
+  values = [
+    yamlencode({
+      targetGroupBinding = {
+        targetGroupArn = var.argocd_target_group_arn
+        targetType     = "ip"
+        port           = 80
+      }
+
+      expressAppRepoCredentials = {
+        secretName        = local.express_app_repo_secret
+        repoURL           = var.express_app_repo_url
+        username          = var.gitea_username
+        tokenSsmParameter = var.express_app_deploy_token_ssm_name
+      }
+
+      imageUpdaterCredentials = {
+        secretName        = local.image_updater_writeback_secret
+        username          = var.gitea_username
+        tokenSsmParameter = var.express_app_writer_token_ssm_name
+      }
+
+      expressAppApplication = {
+        name                 = "express-app"
+        repoURL              = var.express_app_repo_url
+        targetRevision       = "main"
+        path                 = "chart"
+        destinationNamespace = "app"
+        imageList            = var.app_ecr_image_uri
+        appTargetGroupArn    = var.app_target_group_arn
+      }
+    }),
+  ]
+
+  depends_on = [
+    helm_release.argocd,
+    helm_release.image_updater,
   ]
 }

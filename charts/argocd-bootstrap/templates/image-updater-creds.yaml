@@ -1,0 +1,22 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: {{ .Values.imageUpdaterCredentials.secretName | quote }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-ssm
+    kind: ClusterSecretStore
+  target:
+    name: {{ .Values.imageUpdaterCredentials.secretName | quote }}
+    creationPolicy: Owner
+    template:
+      type: Opaque
+      data:
+        username: {{ required "imageUpdaterCredentials.username is required" .Values.imageUpdaterCredentials.username | quote }}
+        password: {{ printf "{{ .password }}" | quote }}
+  data:
+    - secretKey: password
+      remoteRef:
+        key: {{ required "imageUpdaterCredentials.tokenSsmParameter is required" .Values.imageUpdaterCredentials.tokenSsmParameter | quote }}

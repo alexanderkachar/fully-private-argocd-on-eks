@@ -1,0 +1,29 @@
+targetGroupBinding:
+  targetGroupArn: ""
+  targetType: ip
+  # ArgoCD server listens on HTTP when TLS is terminated at the internal ALB.
+  port: 80
+
+# Read-only repo creds ArgoCD uses to fetch the express-app chart from Gitea.
+# Labelled argocd.argoproj.io/secret-type=repository so ArgoCD auto-discovers it.
+expressAppRepoCredentials:
+  secretName: argocd-express-app-creds
+  repoURL: ""
+  username: fpargo-admin
+  tokenSsmParameter: /fp-argo/gitea/express-app-deploy-token
+
+# Read/write creds Image Updater uses to commit values-override.yaml back to Gitea.
+# Application annotation: write-back-method: git:secret:argocd/argocd-image-updater-gitea-creds
+imageUpdaterCredentials:
+  secretName: argocd-image-updater-gitea-creds
+  username: fpargo-admin
+  tokenSsmParameter: /fp-argo/gitea/express-app-writer-token
+
+expressAppApplication:
+  name: express-app
+  repoURL: ""
+  targetRevision: main
+  path: chart
+  destinationNamespace: app
+  imageList: ""
+  appTargetGroupArn: ""
