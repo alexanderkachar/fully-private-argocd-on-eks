@@ -1,0 +1,102 @@
+---
+- name: Resolve latest backup key if none provided
+  ansible.builtin.command:
+    argv:
+      - aws
+      - s3api
+      - list-objects-v2
+      - --bucket
+      - "{{ gitea_backup_bucket }}"
+      - --query
+      - "reverse(sort_by(Contents,&LastModified))[0].Key"
+      - --output
+      - text
+      - --region
+      - "{{ aws_region }}"
+  register: latest_key
+  changed_when: false
+  when: backup_key | length == 0
+
+- name: Set effective backup_key
+  ansible.builtin.set_fact:
+    effective_backup_key: >-
+      {{ backup_key if backup_key | length > 0 else latest_key.stdout | trim }}
+
+- name: Fail if no backup is available
+  ansible.builtin.fail:
+    msg: "No Gitea backups found in s3://{{ gitea_backup_bucket }}."
+  when: effective_backup_key in ['', 'None']
+
+- name: Load on-host restore script
+  ansible.builtin.set_fact:
+    restore_script: "{{ lookup('ansible.builtin.file', role_path ~ '/files/restore-on-host.sh') }}"
+
+- name: Build SSM parameter payload
+  ansible.builtin.set_fact:
+    ssm_parameters: >-
+      {{ {
+           'commands': [
+             'export BACKUP_BUCKET=' ~ gitea_backup_bucket,
+             'export BACKUP_KEY=' ~ effective_backup_key,
+             'export AWS_REGION=' ~ aws_region
+           ] + restore_script.split('\n')
+         } | to_json }}
+
+- name: Send restore command to Gitea host via SSM
+  ansible.builtin.command:
+    argv:
+      - aws
+      - ssm
+      - send-command
+      - --document-name
+      - AWS-RunShellScript
+      - --instance-ids
+      - "{{ gitea_server_instance_id }}"
+      - --parameters
+      - "{{ ssm_parameters }}"
+      - --query
+      - "Command.CommandId"
+      - --output
+      - text
+      - --region
+      - "{{ aws_region }}"
+  register: cmd_send
+  changed_when: true
+
+- name: Wait for SSM command to complete
+  ansible.builtin.command:
+    argv:
+      - aws
+      - ssm
+      - wait
+      - command-executed
+      - --command-id
+      - "{{ cmd_send.stdout | trim }}"
+      - --instance-id
+      - "{{ gitea_server_instance_id }}"
+      - --region
+      - "{{ aws_region }}"
+  changed_when: false
+
+- name: Fetch SSM command output
+  ansible.builtin.command:
+    argv:
+      - aws
+      - ssm
+      - get-command-invocation
+      - --command-id
+      - "{{ cmd_send.stdout | trim }}"
+      - --instance-id
+      - "{{ gitea_server_instance_id }}"
+      - --region
+      - "{{ aws_region }}"
+      - --query
+      - "{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}"
+      - --output
+      - json
+  register: cmd_result
+  changed_when: false
+
+- name: Show restore result
+  ansible.builtin.debug:
+    msg: "{{ cmd_result.stdout | from_json }}"

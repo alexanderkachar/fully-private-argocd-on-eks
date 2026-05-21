@@ -1,0 +1,95 @@
+---
+# Full cold-start. Idempotent: re-run after partial failure converges.
+# Use `--tags <name>` to redo just one step.
+
+- name: Sync inventory from existing terraform state (if any)
+  hosts: localhost
+  gather_facts: false
+  tags: ["always", "inventory_sync"]
+  roles:
+    - role: inventory_sync
+
+- name: Read preserved Gitea data volume ID (if soft teardown left one)
+  hosts: localhost
+  gather_facts: false
+  tags: ["always", "infra"]
+  tasks:
+    - name: Slurp .state/gitea-data-volume-id
+      ansible.builtin.slurp:
+        src: "{{ playbook_dir }}/../../.state/gitea-data-volume-id"
+      register: vol_file
+      failed_when: false
+
+    - name: Set infra tf_vars
+      ansible.builtin.set_fact:
+        infra_tf_vars: >-
+          {{
+            {'gitea_data_volume_id': (vol_file.content | b64decode | trim)}
+            if (vol_file.content is defined and (vol_file.content | b64decode | trim) | length > 0)
+            else {}
+          }}
+
+- name: Apply infra layer
+  hosts: localhost
+  gather_facts: false
+  tags: ["infra"]
+  tasks:
+    - name: terraform apply (infra)
+      ansible.builtin.include_role:
+        name: terraform_layer
+      vars:
+        tf_dir: "{{ playbook_dir }}/../../terraform/infra/environments/dev"
+        tf_action: apply
+        tf_vars: "{{ hostvars['localhost'].infra_tf_vars | default({}) }}"
+
+- name: Refresh inventory after infra apply
+  hosts: localhost
+  gather_facts: false
+  tags: ["always", "infra"]
+  roles:
+    - role: inventory_sync
+
+- name: Wait for Gitea runner registration token in SSM
+  hosts: localhost
+  gather_facts: false
+  tags: ["wait_runner"]
+  tasks:
+    - name: Poll SSM for runner token
+      ansible.builtin.include_role:
+        name: wait_for_ssm_param
+      vars:
+        ssm_param_name: "{{ gitea_runner_token_ssm_name }}"
+        ssm_param_timeout: 900
+
+- name: Mirror platform images into ECR
+  hosts: localhost
+  gather_facts: false
+  tags: ["mirror_images"]
+  roles:
+    - role: mirror_images
+
+- name: Bootstrap Gitea express-app repo
+  hosts: localhost
+  gather_facts: false
+  tags: ["bootstrap_gitea"]
+  roles:
+    - role: bootstrap_gitea
+
+- name: Mirror Gitea Actions dependencies
+  hosts: localhost
+  gather_facts: false
+  tags: ["mirror_actions"]
+  roles:
+    - role: mirror_actions
+
+- name: Apply platform layer
+  hosts: localhost
+  gather_facts: false
+  tags: ["platform"]
+  tasks:
+    - name: terraform apply (platform)
+      ansible.builtin.include_role:
+        name: terraform_layer
+      vars:
+        tf_dir: "{{ playbook_dir }}/../../terraform/platform/environments/dev"
+        tf_action: apply

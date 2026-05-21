@@ -1,0 +1,13 @@
+---
+- name: Refresh inventory
+  hosts: localhost
+  gather_facts: false
+  tags: ["always"]
+  roles:
+    - role: inventory_sync
+
+- name: On-demand Gitea backup
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - role: backup_gitea

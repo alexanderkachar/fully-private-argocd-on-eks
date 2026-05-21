@@ -1,0 +1,50 @@
+---
+# Read terraform outputs from the infra layer and render a static
+# Ansible inventory + group_vars/all.yml. Tolerant of an uninitialised
+# or empty state — needed so spin-up can run from a clean slate.
+
+- name: Ensure inventory directory exists
+  ansible.builtin.file:
+    path: "{{ inventory_dir }}/group_vars"
+    state: directory
+    mode: "0755"
+
+- name: Check whether infra terraform state exists
+  ansible.builtin.stat:
+    path: "{{ infra_tf_dir }}/.terraform"
+  register: infra_tf_state
+
+- name: Capture infra terraform outputs
+  ansible.builtin.command:
+    cmd: terraform output -json
+    chdir: "{{ infra_tf_dir }}"
+  register: infra_outputs_raw
+  changed_when: false
+  failed_when: false
+  when: infra_tf_state.stat.exists
+
+- name: Build flat key -> value map of outputs
+  ansible.builtin.set_fact:
+    tf: >-
+      {{ dict((infra_outputs_raw.stdout | from_json).keys() | list
+              | zip((infra_outputs_raw.stdout | from_json).values()
+                    | map(attribute='value') | list))
+         if (infra_tf_state.stat.exists
+             and infra_outputs_raw.rc | default(1) == 0
+             and (infra_outputs_raw.stdout | default('')) | length > 0)
+         else {} }}
+
+- name: Render inventory/hosts.yml
+  ansible.builtin.template:
+    src: hosts.yml.j2
+    dest: "{{ inventory_dir }}/hosts.yml"
+    mode: "0644"
+
+- name: Render inventory/group_vars/all.yml
+  ansible.builtin.template:
+    src: all.yml.j2
+    dest: "{{ inventory_dir }}/group_vars/all.yml"
+    mode: "0644"
+
+- name: Refresh in-memory inventory so subsequent plays pick up new hosts
+  ansible.builtin.meta: refresh_inventory

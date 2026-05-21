@@ -1,0 +1,10 @@
+---
+- name: "Wait for Gitea at {{ gitea_wait_url }}"
+  ansible.builtin.uri:
+    url: "{{ gitea_wait_url }}"
+    status_code: 200
+    validate_certs: false
+  register: gitea_probe
+  retries: "{{ (gitea_wait_timeout / gitea_wait_delay) | int }}"
+  delay: "{{ gitea_wait_delay }}"
+  until: gitea_probe.status == 200

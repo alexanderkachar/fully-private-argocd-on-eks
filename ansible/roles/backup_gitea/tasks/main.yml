@@ -1,0 +1,10 @@
+---
+# backup-gitea.sh already does the SSM send-command + wait. We keep the shell
+# script as the primitive (per CLAUDE.md) and only orchestrate from here.
+- name: Trigger on-demand Gitea backup via SSM
+  ansible.builtin.command:
+    cmd: "{{ playbook_dir }}/../../scripts/backup-gitea.sh"
+  environment:
+    AWS_REGION: "{{ aws_region }}"
+  register: backup_run
+  changed_when: backup_run.rc == 0

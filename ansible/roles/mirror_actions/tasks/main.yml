@@ -1,0 +1,8 @@
+---
+- name: Mirror GitHub action repos into Gitea
+  ansible.builtin.command:
+    cmd: "{{ playbook_dir }}/../../scripts/mirror-actions.sh"
+  environment:
+    AWS_REGION: "{{ aws_region }}"
+  register: mirror_actions_run
+  changed_when: "'Mirrored' in mirror_actions_run.stdout or 'pushed' in mirror_actions_run.stdout"

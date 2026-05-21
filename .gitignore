@@ -11,4 +11,5 @@ crash.log
 .DS_Store
 .env
 .state/
+.venv/
 CLAUDE.md

@@ -1,0 +1,10 @@
+---
+- name: "Wait for SSM parameter {{ ssm_param_name }}"
+  ansible.builtin.command:
+    cmd: "aws ssm get-parameter --name {{ ssm_param_name }} --with-decryption --region {{ aws_region }}"
+  register: ssm_check
+  changed_when: false
+  failed_when: false
+  retries: "{{ (ssm_param_timeout / ssm_param_delay) | int }}"
+  delay: "{{ ssm_param_delay }}"
+  until: ssm_check.rc == 0

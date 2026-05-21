@@ -1,0 +1,4 @@
+---
+# Optional:
+#   backup_key: S3 key under the Gitea backup bucket; if empty, picks the latest.
+backup_key: ""

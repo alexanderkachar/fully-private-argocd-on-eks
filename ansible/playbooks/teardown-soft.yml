@@ -1,0 +1,68 @@
+---
+# Backup Gitea, destroy platform, destroy infra (EBS preserved via prevent_destroy
+# + a state rm so the volume survives the destroy).
+
+- name: Refresh inventory
+  hosts: localhost
+  gather_facts: false
+  tags: ["always"]
+  roles:
+    - role: inventory_sync
+
+- name: Backup Gitea via SSM
+  hosts: localhost
+  gather_facts: false
+  tags: ["backup"]
+  roles:
+    - role: backup_gitea
+
+- name: Persist Gitea data volume ID for next spin-up
+  hosts: localhost
+  gather_facts: false
+  tags: ["preserve_volume"]
+  tasks:
+    - name: Read gitea_data_volume_id from terraform outputs
+      ansible.builtin.command:
+        cmd: terraform output -raw gitea_data_volume_id
+        chdir: "{{ playbook_dir }}/../../terraform/infra/environments/dev"
+      register: volume_out
+      changed_when: false
+
+    - name: Ensure .state dir exists
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../../.state"
+        state: directory
+        mode: "0755"
+
+    - name: Write volume ID to .state/gitea-data-volume-id
+      ansible.builtin.copy:
+        content: "{{ volume_out.stdout }}\n"
+        dest: "{{ playbook_dir }}/../../.state/gitea-data-volume-id"
+        mode: "0644"
+
+- name: Destroy platform layer
+  hosts: localhost
+  gather_facts: false
+  tags: ["platform"]
+  tasks:
+    - name: terraform destroy (platform)
+      ansible.builtin.include_role:
+        name: terraform_layer
+      vars:
+        tf_dir: "{{ playbook_dir }}/../../terraform/platform/environments/dev"
+        tf_action: destroy
+
+- name: Destroy infra layer (release EBS from state first)
+  hosts: localhost
+  gather_facts: false
+  tags: ["infra"]
+  tasks:
+    - name: terraform destroy (infra) — remove EBS from state so AWS keeps it
+      ansible.builtin.include_role:
+        name: terraform_layer
+      vars:
+        tf_dir: "{{ playbook_dir }}/../../terraform/infra/environments/dev"
+        tf_action: destroy
+        tf_state_rm:
+          - "module.gitea_server.aws_ebs_volume.data[0]"
+          - "module.gitea_server.aws_ebs_volume.data"

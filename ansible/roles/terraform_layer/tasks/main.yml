@@ -1,0 +1,34 @@
+---
+- name: "terraform init ({{ tf_dir | basename }})"
+  ansible.builtin.command:
+    cmd: terraform init -input=false -upgrade=false
+    chdir: "{{ tf_dir }}"
+  register: tf_init
+  changed_when: "'Terraform has been successfully initialized' in tf_init.stdout"
+
+- name: "terraform state rm (pre-{{ tf_action }})"
+  ansible.builtin.command:
+    cmd: "terraform state rm {{ item }}"
+    chdir: "{{ tf_dir }}"
+  loop: "{{ tf_state_rm }}"
+  register: tf_rm
+  failed_when: false
+  changed_when: tf_rm.rc == 0
+
+- name: "terraform {{ tf_action }} ({{ tf_dir | basename }})"
+  ansible.builtin.command:
+    argv: >-
+      {{ ['terraform', tf_action, '-input=false']
+         + (['-auto-approve'] if tf_auto_approve else [])
+         + (tf_vars | dict2items
+             | map(attribute='key') | list
+             | zip(tf_vars | dict2items | map(attribute='value') | list)
+             | map('list') | map('join', '=')
+             | map('regex_replace', '^(.*)$', '-var=\\1') | list) }}
+    chdir: "{{ tf_dir }}"
+  register: tf_result
+  changed_when: >-
+    ('Apply complete!' in tf_result.stdout)
+    or ('Destroy complete!' in tf_result.stdout)
+    or ('Resources: 0 added, 0 changed, 0 destroyed' not in tf_result.stdout
+        and tf_result.rc == 0)

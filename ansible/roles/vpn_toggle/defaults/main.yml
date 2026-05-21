@@ -1,0 +1,4 @@
+---
+# Required:
+#   vpn_state: associated | dissociated
+vpn_state: associated

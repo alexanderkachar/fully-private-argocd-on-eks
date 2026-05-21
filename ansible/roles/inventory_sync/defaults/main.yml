@@ -1,0 +1,6 @@
+---
+repo_root: "{{ playbook_dir }}/../.."
+infra_tf_dir: "{{ repo_root }}/terraform/infra/environments/dev"
+platform_tf_dir: "{{ repo_root }}/terraform/platform/environments/dev"
+inventory_dir: "{{ playbook_dir }}/../inventory"
+state_dir: "{{ repo_root }}/.state"

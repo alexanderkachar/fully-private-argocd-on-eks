@@ -1,0 +1,53 @@
+---
+# Soft teardown, then delete the preserved Gitea EBS volume.
+# Guard: requires `confirm_hard=destroy-gitea-state` extra-var to proceed.
+
+- name: Confirmation guard
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Require confirmation
+      ansible.builtin.assert:
+        that:
+          - confirm_hard | default('') == 'destroy-gitea-state'
+        fail_msg: |
+          Hard teardown deletes the preserved Gitea EBS volume.
+          Re-run with -e confirm_hard=destroy-gitea-state to continue.
+
+- name: Run soft teardown
+  ansible.builtin.import_playbook: teardown-soft.yml
+
+- name: Delete preserved Gitea EBS volume
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Read preserved volume ID
+      ansible.builtin.slurp:
+        src: "{{ playbook_dir }}/../../.state/gitea-data-volume-id"
+      register: vol_file
+      failed_when: false
+
+    - name: Set preserved volume ID
+      ansible.builtin.set_fact:
+        preserved_volume_id: >-
+          {{ (vol_file.content | b64decode | trim)
+             if vol_file.content is defined else '' }}
+
+    - name: Wait for volume to be available
+      ansible.builtin.command:
+        cmd: "aws ec2 wait volume-available --volume-ids {{ preserved_volume_id }} --region {{ aws_region }}"
+      when: preserved_volume_id | length > 0
+      changed_when: false
+      failed_when: false
+
+    - name: Delete EBS volume
+      ansible.builtin.command:
+        cmd: "aws ec2 delete-volume --volume-id {{ preserved_volume_id }} --region {{ aws_region }}"
+      when: preserved_volume_id | length > 0
+      register: del_vol
+      changed_when: del_vol.rc == 0
+
+    - name: Remove .state file
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../../.state/gitea-data-volume-id"
+        state: absent

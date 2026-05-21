@@ -1,0 +1,4 @@
+inventory/hosts.yml
+inventory/group_vars/all.yml
+logs/
+*.retry

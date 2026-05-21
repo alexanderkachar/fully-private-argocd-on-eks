@@ -1,22 +1,35 @@
-.PHONY: spin-up teardown-soft teardown-hard restore backup-gitea vpn-up vpn-down
+.PHONY: spin-up teardown-soft teardown-hard restore backup-gitea vpn-up vpn-down ansible-setup
+
+VENV       := .venv
+ANSIBLE    := $(VENV)/bin/ansible-playbook
+GALAXY     := $(VENV)/bin/ansible-galaxy
+PIP        := $(VENV)/bin/pip
+PYTHON     := python3
+PLAYBOOKS  := ansible/playbooks
+
+ansible-setup:
+	$(PYTHON) -m venv $(VENV)
+	$(PIP) install --upgrade pip
+	$(PIP) install -r ansible/requirements.txt
+	$(GALAXY) collection install -r ansible/requirements.yml
 
 spin-up:
-	./scripts/spin-up.sh
+	$(ANSIBLE) $(PLAYBOOKS)/spin-up.yml
 
 teardown-soft:
-	./scripts/teardown-soft.sh
+	$(ANSIBLE) $(PLAYBOOKS)/teardown-soft.yml
 
 teardown-hard:
-	./scripts/teardown-hard.sh
+	$(ANSIBLE) $(PLAYBOOKS)/teardown-hard.yml -e confirm_hard=$(CONFIRM)
 
 restore:
-	./scripts/restore.sh
+	$(ANSIBLE) $(PLAYBOOKS)/restore.yml $(if $(BACKUP_KEY),-e backup_key=$(BACKUP_KEY))
 
 backup-gitea:
-	./scripts/backup-gitea.sh
+	$(ANSIBLE) $(PLAYBOOKS)/backup-gitea.yml
 
 vpn-up:
-	./scripts/vpn-toggle.sh up
+	$(ANSIBLE) $(PLAYBOOKS)/vpn-up.yml
 
 vpn-down:
-	./scripts/vpn-toggle.sh down
+	$(ANSIBLE) $(PLAYBOOKS)/vpn-down.yml

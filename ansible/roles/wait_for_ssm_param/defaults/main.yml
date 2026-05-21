@@ -1,0 +1,8 @@
+---
+# Required:
+#   ssm_param_name: SSM parameter to poll
+# Optional:
+#   ssm_param_timeout: seconds (default 900)
+#   ssm_param_delay: seconds between checks (default 10)
+ssm_param_timeout: 900
+ssm_param_delay: 10

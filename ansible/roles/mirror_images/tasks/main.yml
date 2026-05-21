@@ -1,0 +1,8 @@
+---
+- name: Mirror third-party images into ECR
+  ansible.builtin.command:
+    cmd: "{{ playbook_dir }}/../../scripts/mirror-images.sh"
+  environment:
+    AWS_REGION: "{{ aws_region }}"
+  register: mirror_images_run
+  changed_when: "'Pushed' in mirror_images_run.stdout or 'pushed' in mirror_images_run.stdout"

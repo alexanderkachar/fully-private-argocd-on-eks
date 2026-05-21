@@ -1,0 +1,26 @@
+---
+- name: Read preserved Gitea data volume ID if present
+  ansible.builtin.slurp:
+    src: "{{ playbook_dir }}/../../.state/gitea-data-volume-id"
+  register: vol_file
+  failed_when: false
+
+- name: Build terraform var overrides
+  ansible.builtin.set_fact:
+    vpn_tf_vars: >-
+      {{
+        {'vpn_associated': (vpn_state == 'associated') | string | lower}
+        | combine(
+            {'gitea_data_volume_id': (vol_file.content | b64decode | trim)}
+            if (vol_file.content is defined and (vol_file.content | b64decode | trim) | length > 0)
+            else {}
+          )
+      }}
+
+- name: "Apply infra layer with vpn_associated={{ vpn_tf_vars.vpn_associated }}"
+  ansible.builtin.include_role:
+    name: terraform_layer
+  vars:
+    tf_dir: "{{ playbook_dir }}/../../terraform/infra/environments/dev"
+    tf_action: apply
+    tf_vars: "{{ vpn_tf_vars }}"

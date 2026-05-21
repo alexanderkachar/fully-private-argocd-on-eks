@@ -1,0 +1,10 @@
+---
+# bootstrap-gitea.sh must remain idempotent (check whether `express-app` repo
+# already exists before seeding). This role is a thin wrapper.
+- name: Seed Gitea express-app repo
+  ansible.builtin.command:
+    cmd: "{{ playbook_dir }}/../../scripts/bootstrap-gitea.sh"
+  environment:
+    AWS_REGION: "{{ aws_region }}"
+  register: bootstrap_gitea_run
+  changed_when: "'Created repo' in bootstrap_gitea_run.stdout or 'seeded' in bootstrap_gitea_run.stdout"

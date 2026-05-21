@@ -1,0 +1,15 @@
+---
+- name: Refresh inventory
+  hosts: localhost
+  gather_facts: false
+  tags: ["always"]
+  roles:
+    - role: inventory_sync
+
+- name: Dissociate Client VPN endpoint subnet (stops $0.10/hr)
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - role: vpn_toggle
+      vars:
+        vpn_state: dissociated
