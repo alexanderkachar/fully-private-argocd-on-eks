@@ -35,17 +35,24 @@ tf_output() {
 
 GITEA_HOSTNAME=$(tf_output gitea_hostname)
 ADMIN_USERNAME=$(tf_output gitea_admin_username)
+ADMIN_PASSWORD_SSM_NAME=$(tf_output gitea_admin_password_ssm_name)
 TOKEN_SSM_NAME=$(tf_output gitea_admin_api_token_ssm_name)
 AWS_REGION=$(tf_output region)
 ECR_REGISTRY=$(tf_output ecr_registry_url)
 APP_ECR_IMAGE_URI=$(tf_output app_ecr_image_uri)
 APP_TG_ARN=$(tf_output app_target_group_arn)
+GITEA_INSTANCE_ID=$(tf_output gitea_server_instance_id)
 
 GITEA_URL="https://${GITEA_HOSTNAME}"
 GITEA_ORG="fp-argo"
 EXPRESS_APP_URL="${GITEA_URL}/${GITEA_ORG}/express-app.git"
 
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/gitea-access.sh"
+open_gitea_access "$GITEA_URL" "$GITEA_INSTANCE_ID" "$AWS_REGION"
+
 echo "Gitea URL              : ${GITEA_URL}"
+echo "Gitea bootstrap access : ${GITEA_ACCESS_URL}"
 echo "Admin user             : ${ADMIN_USERNAME}"
 echo "Org                    : ${GITEA_ORG}"
 echo "AWS region             : ${AWS_REGION}"
@@ -70,6 +77,18 @@ if [[ -z "$ADMIN_TOKEN" ]]; then
   exit 1
 fi
 
+ADMIN_PASSWORD=$(aws ssm get-parameter \
+  --name "${ADMIN_PASSWORD_SSM_NAME}" \
+  --with-decryption \
+  --region "${AWS_REGION}" \
+  --query 'Parameter.Value' \
+  --output text)
+
+if [[ -z "$ADMIN_PASSWORD" ]]; then
+  echo "ERROR: SSM parameter ${ADMIN_PASSWORD_SSM_NAME} is empty." >&2
+  exit 1
+fi
+
 # ---------- helpers ----------
 
 gitea_api() {
@@ -78,7 +97,7 @@ gitea_api() {
     -X "$method"
     -H "Authorization: token ${ADMIN_TOKEN}"
     -H "Content-Type: application/json"
-    "${GITEA_URL}/api/v1${path}"
+    "${GITEA_ACCESS_URL}/api/v1${path}"
   )
   [[ -n "$data" ]] && args+=(-d "$data")
   curl "${args[@]}"
@@ -90,7 +109,7 @@ gitea_api_json() {
     -X "$method"
     -H "Authorization: token ${ADMIN_TOKEN}"
     -H "Content-Type: application/json"
-    "${GITEA_URL}/api/v1${path}"
+    "${GITEA_ACCESS_URL}/api/v1${path}"
   )
   [[ -n "$data" ]] && args+=(-d "$data")
   curl "${args[@]}"
@@ -161,7 +180,7 @@ push_content() {
   trap "rm -rf ${clone_dir}" RETURN
 
   git clone \
-    "https://${ADMIN_USERNAME}:${ADMIN_TOKEN}@${GITEA_HOSTNAME}/${GITEA_ORG}/${repo}.git" \
+    "${GITEA_ACCESS_URL/\/\//\/\/${ADMIN_USERNAME}:${ADMIN_TOKEN}@}/${GITEA_ORG}/${repo}.git" \
     "${clone_dir}/${repo}"
 
   rsync -a --exclude='.git' "${staged_dir}/" "${clone_dir}/${repo}/"
@@ -198,8 +217,8 @@ echo ""
 # ---------- 4. create access tokens and store in SSM ----------
 #
 # Two tokens — distinct so we can rotate independently and follow least-privilege:
-#   - argocd-express-app-deploy  (repository:read)  — used by ArgoCD to fetch the chart
-#   - argocd-express-app-writer  (repository:read+write) — used by Image Updater to commit values-override.yaml
+#   - argocd-express-app-deploy  (read:repository)  — used by ArgoCD to fetch the chart
+#   - argocd-express-app-writer  (read+write:repository) — used by Image Updater to commit values-override.yaml
 #
 # Gitea 1.22 fine-grained PATs. POST /users/{username}/tokens returns sha1 only at creation.
 # If the token already exists Gitea returns 422; we preserve any existing SSM value.
@@ -207,14 +226,17 @@ echo ""
 create_access_token() {
   local token_name="$1"
   local ssm_name="$2"
-  local scopes="$3"  # JSON array string, e.g. '["repository:read","repository:write"]'
+  local scopes="$3"  # JSON array string, e.g. '["read:repository","write:repository"]'
 
   echo "Creating access token '${token_name}'…"
 
   local response
-  response=$(gitea_api_json POST \
-    "/users/${ADMIN_USERNAME}/tokens" \
-    "{\"name\":\"${token_name}\",\"scopes\":${scopes}}")
+  response=$(curl -s \
+    -X POST \
+    -u "${ADMIN_USERNAME}:${ADMIN_PASSWORD}" \
+    -H "Content-Type: application/json" \
+    "${GITEA_ACCESS_URL}/api/v1/users/${ADMIN_USERNAME}/tokens" \
+    -d "{\"name\":\"${token_name}\",\"scopes\":${scopes}}")
 
   local token_val
   token_val=$(echo "$response" | jq -r '.sha1 // empty')
@@ -250,12 +272,12 @@ create_access_token() {
 create_access_token \
   "argocd-express-app-deploy" \
   "/fp-argo/gitea/express-app-deploy-token" \
-  '["repository:read"]'
+  '["read:repository"]'
 
 create_access_token \
   "argocd-express-app-writer" \
   "/fp-argo/gitea/express-app-writer-token" \
-  '["repository:read","repository:write"]'
+  '["read:repository","write:repository"]'
 
 echo ""
 echo "Bootstrap complete."

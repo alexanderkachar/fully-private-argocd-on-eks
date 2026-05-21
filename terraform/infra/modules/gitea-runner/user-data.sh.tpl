@@ -45,7 +45,7 @@ fi
 
 # Wait for Gitea to actually answer — registration fails otherwise.
 for _ in $(seq 1 60); do
-  if curl -fsSk "$GITEA_URL/api/v1/version" >/dev/null 2>&1; then
+  if curl -fsSk "$GITEA_URL/api/healthz" >/dev/null 2>&1; then
     break
   fi
   sleep 5

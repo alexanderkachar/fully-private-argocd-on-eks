@@ -6,7 +6,9 @@
 #   tf_vars: { key: value, ... } — passed as -var key=value
 #   tf_state_rm: [ "module.x.resource.y", ... ] — state rm before action
 #   tf_auto_approve: true|false (default true)
+#   tf_command: terraform-compatible command path (default terraform)
 tf_action: apply
 tf_vars: {}
 tf_state_rm: []
 tf_auto_approve: true
+tf_command: terraform

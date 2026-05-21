@@ -21,3 +21,15 @@ variable "express_app_writer_token_ssm_name" {
   type        = string
   default     = "/fp-argo/gitea/express-app-writer-token"
 }
+
+variable "cluster_api_host" {
+  description = "Optional Kubernetes API host override for private-endpoint tunnels."
+  type        = string
+  default     = null
+}
+
+variable "cluster_api_tls_server_name" {
+  description = "Optional Kubernetes API TLS server name override for private-endpoint tunnels."
+  type        = string
+  default     = null
+}

@@ -19,6 +19,7 @@ resource "helm_release" "this" {
   version          = var.chart_version
   wait             = true
   timeout          = 300
+  upgrade_install  = true
 
   values = [
     yamlencode({
@@ -52,11 +53,12 @@ resource "helm_release" "this" {
 }
 
 resource "helm_release" "cluster_secret_store" {
-  name      = "external-secrets-cluster-store"
-  chart     = "${path.module}/chart"
-  namespace = var.namespace
-  wait      = true
-  timeout   = 120
+  name            = "external-secrets-cluster-store"
+  chart           = "${path.module}/chart"
+  namespace       = var.namespace
+  wait            = true
+  timeout         = 120
+  upgrade_install = true
 
   values = [
     yamlencode({

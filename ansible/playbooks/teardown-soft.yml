@@ -51,6 +51,7 @@
       vars:
         tf_dir: "{{ playbook_dir }}/../../terraform/platform/environments/dev"
         tf_action: destroy
+        tf_command: "{{ playbook_dir }}/../../scripts/platform-terraform.sh"
 
 - name: Destroy infra layer (release EBS from state first)
   hosts: localhost

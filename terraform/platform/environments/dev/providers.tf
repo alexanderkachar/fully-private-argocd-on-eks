@@ -22,8 +22,9 @@ provider "aws" {
 
 provider "helm" {
   kubernetes = {
-    host                   = local.infra.cluster_endpoint
+    host                   = coalesce(var.cluster_api_host, local.infra.cluster_endpoint)
     cluster_ca_certificate = base64decode(local.infra.cluster_ca_data)
+    tls_server_name        = var.cluster_api_tls_server_name
 
     exec = {
       api_version = "client.authentication.k8s.io/v1beta1"

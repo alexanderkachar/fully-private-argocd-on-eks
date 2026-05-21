@@ -148,6 +148,11 @@ output "gitea_runner_ssm_session_command" {
   value       = module.gitea_runner.ssm_session_command
 }
 
+output "gitea_runner_instance_id" {
+  description = "Gitea runner EC2 instance ID. Used as the private EKS API SSM tunnel target."
+  value       = module.gitea_runner.instance_id
+}
+
 output "gitea_config_bucket" {
   description = "S3 bucket holding the rendered docker-compose templates."
   value       = module.s3_config.bucket_name

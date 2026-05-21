@@ -16,6 +16,7 @@ locals {
     "kube-webhook-certgen",
     "loki",
     "nginx-unprivileged",
+    "prometheus-config-reloader",
     "node-exporter",
     "prometheus",
     "prometheus-operator",
@@ -100,6 +101,7 @@ module "vpn" {
   association_subnet_id = module.vpc.public_subnet_ids[0]
   associated            = var.vpn_associated
   client_cidr_block     = var.vpn_client_cidr
+  server_dns_name       = "vpn.${trimsuffix(var.domain_name, ".")}"
 }
 
 module "alb_public" {

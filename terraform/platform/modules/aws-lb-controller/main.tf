@@ -11,13 +11,14 @@ resource "aws_eks_pod_identity_association" "this" {
 }
 
 resource "helm_release" "this" {
-  name       = "aws-load-balancer-controller"
-  repository = "https://aws.github.io/eks-charts"
-  chart      = "aws-load-balancer-controller"
-  namespace  = local.namespace
-  version    = var.chart_version
-  wait       = true
-  timeout    = 300
+  name            = "aws-load-balancer-controller"
+  repository      = "https://aws.github.io/eks-charts"
+  chart           = "aws-load-balancer-controller"
+  namespace       = local.namespace
+  version         = var.chart_version
+  wait            = true
+  timeout         = 300
+  upgrade_install = true
 
   values = [
     yamlencode({

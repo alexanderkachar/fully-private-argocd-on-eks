@@ -1,14 +1,14 @@
 ---
 - name: "terraform init ({{ tf_dir | basename }})"
   ansible.builtin.command:
-    cmd: terraform init -input=false -upgrade=false
+    argv: "{{ [tf_command, 'init', '-input=false', '-upgrade=false'] }}"
     chdir: "{{ tf_dir }}"
   register: tf_init
   changed_when: "'Terraform has been successfully initialized' in tf_init.stdout"
 
 - name: "terraform state rm (pre-{{ tf_action }})"
   ansible.builtin.command:
-    cmd: "terraform state rm {{ item }}"
+    argv: "{{ [tf_command, 'state', 'rm', item] }}"
     chdir: "{{ tf_dir }}"
   loop: "{{ tf_state_rm }}"
   register: tf_rm
@@ -18,7 +18,7 @@
 - name: "terraform {{ tf_action }} ({{ tf_dir | basename }})"
   ansible.builtin.command:
     argv: >-
-      {{ ['terraform', tf_action, '-input=false']
+      {{ [tf_command, tf_action, '-input=false']
          + (['-auto-approve'] if tf_auto_approve else [])
          + (tf_vars | dict2items
              | map(attribute='key') | list

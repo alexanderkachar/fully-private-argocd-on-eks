@@ -35,6 +35,11 @@ variable "client_cidr_block" {
   default     = "10.100.0.0/22"
 }
 
+variable "server_dns_name" {
+  description = "FQDN placed in the Client VPN server certificate DNS SAN for ACM."
+  type        = string
+}
+
 variable "client_username" {
   description = "Common Name embedded in the single client certificate. Used as the identifier in the OpenVPN config."
   type        = string

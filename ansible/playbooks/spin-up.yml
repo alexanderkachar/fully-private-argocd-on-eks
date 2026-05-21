@@ -49,7 +49,7 @@
   roles:
     - role: inventory_sync
 
-- name: Wait for Gitea runner registration token in SSM
+- name: Wait for Gitea bootstrap tokens in SSM
   hosts: localhost
   gather_facts: false
   tags: ["wait_runner"]
@@ -59,6 +59,13 @@
         name: wait_for_ssm_param
       vars:
         ssm_param_name: "{{ gitea_runner_token_ssm_name }}"
+        ssm_param_timeout: 900
+
+    - name: Poll SSM for admin API token
+      ansible.builtin.include_role:
+        name: wait_for_ssm_param
+      vars:
+        ssm_param_name: "{{ gitea_admin_api_token_ssm_name }}"
         ssm_param_timeout: 900
 
 - name: Mirror platform images into ECR
@@ -93,3 +100,4 @@
       vars:
         tf_dir: "{{ playbook_dir }}/../../terraform/platform/environments/dev"
         tf_action: apply
+        tf_command: "{{ playbook_dir }}/../../scripts/platform-terraform.sh"

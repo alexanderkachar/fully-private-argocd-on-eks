@@ -11,10 +11,11 @@ ADMIN_TOKEN_SSM="${admin_token_ssm_name}"
 RUNNER_TOKEN_SSM="${runner_token_ssm_name}"
 
 dnf update -y
-dnf install -y docker awscli jq unzip sqlite
+dnf install -y docker awscli jq unzip sqlite cronie
 
 # Docker
 systemctl enable --now docker
+systemctl enable --now crond
 usermod -aG docker ec2-user
 
 # docker compose v2 plugin (AL2023 ships docker but not the compose plugin).
@@ -67,7 +68,7 @@ backup="/tmp/gitea-restore.zip"
 
 latest_key=$(aws s3api list-objects-v2 \
   --bucket "$BACKUP_BUCKET" \
-  --query 'reverse(sort_by(Contents,&LastModified))[0].Key' \
+  --query 'reverse(sort_by(not_null(Contents, `[]`),&LastModified))[0].Key' \
   --output text \
   --region "$REGION")
 
@@ -131,7 +132,7 @@ docker compose up -d
 
 # Wait for the API.
 for _ in $(seq 1 60); do
-  if curl -fsS http://localhost:3000/api/v1/version >/dev/null 2>&1; then
+  if curl -fsS http://localhost:3000/api/healthz >/dev/null 2>&1; then
     break
   fi
   sleep 5
@@ -140,37 +141,41 @@ done
 # Generate (or fetch) admin password and create the admin user idempotently.
 ADMIN_PW=$(aws ssm get-parameter --name "$ADMIN_PW_SSM" --with-decryption --region "$REGION" --query 'Parameter.Value' --output text)
 
-if ! docker exec gitea gitea --config /data/gitea/conf/app.ini admin user list 2>/dev/null | grep -q "^[[:space:]]*[0-9]\+[[:space:]]\+$GITEA_ADMIN_USER[[:space:]]"; then
-  docker exec gitea gitea --config /data/gitea/conf/app.ini admin user create \
+if ! docker exec --user git gitea gitea --config /data/gitea/conf/app.ini admin user list 2>/dev/null | grep -q "^[[:space:]]*[0-9]\+[[:space:]]\+$GITEA_ADMIN_USER[[:space:]]"; then
+  docker exec --user git gitea gitea --config /data/gitea/conf/app.ini admin user create \
     --username "$GITEA_ADMIN_USER" \
     --password "$ADMIN_PW" \
     --email "$GITEA_ADMIN_USER@example.invalid" \
     --admin \
-    --must-change-password=false || true
+    --must-change-password=false
 fi
 
 # Issue an API token if one isn't already stored. Token name is fixed so we
 # can detect existence and avoid creating duplicates on every boot.
 TOKEN_NAME="bootstrap"
 if ! aws ssm get-parameter --name "$ADMIN_TOKEN_SSM" --region "$REGION" >/dev/null 2>&1; then
-  TOKEN_OUT=$(docker exec gitea gitea --config /data/gitea/conf/app.ini admin user generate-access-token \
+  TOKEN_OUT=$(docker exec --user git gitea gitea --config /data/gitea/conf/app.ini admin user generate-access-token \
     --username "$GITEA_ADMIN_USER" \
     --token-name "$TOKEN_NAME" \
-    --scopes "all" || true)
+    --scopes "all")
   TOKEN_VAL=$(echo "$TOKEN_OUT" | awk '/Access token was successfully created/ {print $NF}')
-  if [[ -n "$TOKEN_VAL" ]]; then
-    aws ssm put-parameter --name "$ADMIN_TOKEN_SSM" --type SecureString --value "$TOKEN_VAL" --overwrite --region "$REGION"
+  if [[ -z "$TOKEN_VAL" ]]; then
+    echo "ERROR: admin API token generation returned no token" >&2
+    exit 1
   fi
+  aws ssm put-parameter --name "$ADMIN_TOKEN_SSM" --type SecureString --value "$TOKEN_VAL" --overwrite --region "$REGION"
 fi
 
 # Generate a runner registration token. Gitea returns a fresh token each
 # call; we only write to SSM if there isn't one yet, so the runner has a
 # stable handshake value.
 if ! aws ssm get-parameter --name "$RUNNER_TOKEN_SSM" --region "$REGION" >/dev/null 2>&1; then
-  RUNNER_TOKEN=$(docker exec gitea gitea --config /data/gitea/conf/app.ini actions generate-runner-token | tr -d '\r\n' || true)
-  if [[ -n "$RUNNER_TOKEN" ]]; then
-    aws ssm put-parameter --name "$RUNNER_TOKEN_SSM" --type SecureString --value "$RUNNER_TOKEN" --overwrite --region "$REGION"
+  RUNNER_TOKEN=$(docker exec --user git gitea gitea --config /data/gitea/conf/app.ini actions generate-runner-token | tr -d '\r\n')
+  if [[ -z "$RUNNER_TOKEN" ]]; then
+    echo "ERROR: runner registration token generation returned no token" >&2
+    exit 1
   fi
+  aws ssm put-parameter --name "$RUNNER_TOKEN_SSM" --type SecureString --value "$RUNNER_TOKEN" --overwrite --region "$REGION"
 fi
 
 # Daily backup cron — runs `gitea dump` and uploads to the backups bucket.
@@ -187,7 +192,7 @@ set -euo pipefail
 BACKUP_BUCKET="__BACKUP_BUCKET__"
 REGION="__REGION__"
 ts=$(date -u +%Y-%m-%dT%H-%M-%SZ)
-docker exec gitea bash -lc "cd /tmp && gitea --config /data/gitea/conf/app.ini dump --type zip --file /tmp/dump-$ts.zip"
+docker exec --user git gitea bash -lc "cd /tmp && gitea --config /data/gitea/conf/app.ini dump --type zip --file /tmp/dump-$ts.zip"
 docker cp gitea:/tmp/dump-$ts.zip /tmp/dump-$ts.zip
 docker exec gitea rm -f /tmp/dump-$ts.zip
 aws s3 cp /tmp/dump-$ts.zip "s3://$BACKUP_BUCKET/daily/$ts.zip" --region "$REGION"

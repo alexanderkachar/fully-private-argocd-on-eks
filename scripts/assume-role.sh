@@ -16,6 +16,7 @@ source "$ENV_FILE"
 
 : "${ROLE_ARN:?ROLE_ARN not set in .env}"
 : "${SESSION_NAME:=AWSCLI-Session}"
+: "${SESSION_DURATION:=14400}"  # 4 hours; raise up to 43200 if the role allows it
 
 credentials=$(aws sts assume-role \
   --role-arn "$ROLE_ARN" \

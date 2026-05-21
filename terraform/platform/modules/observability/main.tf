@@ -22,7 +22,7 @@ locals {
         prometheusConfigReloader = {
           image = {
             registry   = var.ecr_registry_url
-            repository = "prometheus-operator"
+            repository = "prometheus-config-reloader"
             tag        = "v0.90.1"
           }
         }
@@ -81,6 +81,13 @@ locals {
           tag        = "1.29-alpine"
         }
       }
+      sidecar = {
+        image = {
+          registry   = var.ecr_registry_url
+          repository = "k8s-sidecar"
+          tag        = "2.7.1"
+        }
+      }
     }
 
     promtail = {
@@ -103,6 +110,7 @@ resource "helm_release" "this" {
   create_namespace = true
   wait             = true
   timeout          = 900
+  upgrade_install  = true
 
   values = [
     yamlencode(merge(

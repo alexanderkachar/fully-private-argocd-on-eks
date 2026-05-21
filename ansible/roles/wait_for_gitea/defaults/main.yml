@@ -1,8 +1,8 @@
 ---
 # Optional:
-#   gitea_wait_url: URL to poll; defaults to https://{{ gitea_hostname }}/api/v1/version
+#   gitea_wait_url: URL to poll; defaults to https://{{ gitea_hostname }}/api/healthz
 #   gitea_wait_timeout: seconds (default 600)
 #   gitea_wait_delay: seconds between checks (default 10)
-gitea_wait_url: "https://{{ gitea_hostname }}/api/v1/version"
+gitea_wait_url: "https://{{ gitea_hostname }}/api/healthz"
 gitea_wait_timeout: 600
 gitea_wait_delay: 10

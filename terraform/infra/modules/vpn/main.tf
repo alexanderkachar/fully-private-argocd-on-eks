@@ -35,6 +35,7 @@ resource "tls_private_key" "server" {
 
 resource "tls_cert_request" "server" {
   private_key_pem = tls_private_key.server.private_key_pem
+  dns_names       = [var.server_dns_name]
 
   subject {
     common_name  = "${local.name_prefix}-vpn-server"
@@ -54,6 +55,14 @@ resource "tls_locally_signed_cert" "server" {
     "digital_signature",
     "server_auth",
   ]
+}
+
+resource "time_sleep" "server_cert_validity_start" {
+  create_duration = "1m"
+
+  triggers = {
+    server_cert_id = tls_locally_signed_cert.server.id
+  }
 }
 
 # Client cert (one operator)
@@ -94,12 +103,15 @@ resource "aws_acm_certificate" "server" {
   certificate_body  = tls_locally_signed_cert.server.cert_pem
   certificate_chain = tls_self_signed_cert.ca.cert_pem
 
+  depends_on = [time_sleep.server_cert_validity_start]
+
   tags = {
     Name = "${local.name_prefix}-vpn-server"
   }
 
   lifecycle {
     create_before_destroy = true
+    replace_triggered_by  = [tls_locally_signed_cert.server]
   }
 }
 

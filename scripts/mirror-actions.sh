@@ -42,6 +42,11 @@ if ! TOKEN_SSM_NAME=$(terraform -chdir="$INFRA_DIR" output -raw gitea_admin_api_
   exit 1
 fi
 
+if ! GITEA_INSTANCE_ID=$(terraform -chdir="$INFRA_DIR" output -raw gitea_server_instance_id 2>/dev/null); then
+  echo "ERROR: could not read gitea_server_instance_id from Terraform infra output." >&2
+  exit 1
+fi
+
 AWS_REGION=$(terraform -chdir="$INFRA_DIR" output -raw region 2>/dev/null || true)
 if [[ -z "$AWS_REGION" ]]; then
   AWS_REGION=$(aws configure get region 2>/dev/null || true)
@@ -51,7 +56,12 @@ AWS_REGION="${AWS_REGION:-us-east-1}"
 GITEA_URL="https://${GITEA_HOSTNAME}"
 ACTIONS_ORG="actions"
 
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/gitea-access.sh"
+open_gitea_access "$GITEA_URL" "$GITEA_INSTANCE_ID" "$AWS_REGION"
+
 echo "Gitea URL    : ${GITEA_URL}"
+echo "Gitea access : ${GITEA_ACCESS_URL}"
 echo "Actions org  : ${ACTIONS_ORG}"
 echo ""
 
@@ -96,7 +106,7 @@ gitea_api() {
     -X "$method"
     -H "Authorization: token ${ADMIN_TOKEN}"
     -H "Content-Type: application/json"
-    "${GITEA_URL}/api/v1${path}"
+    "${GITEA_ACCESS_URL}/api/v1${path}"
   )
   [[ -n "$data" ]] && args+=(-d "$data")
   curl "${args[@]}"
@@ -152,7 +162,7 @@ for entry in "${ACTIONS[@]}"; do
   # `uses: actions/checkout@v4` to the v4 tag in this repo.
   pushd "${tmpdir}/${gitea_repo}.git" > /dev/null
   git remote add gitea \
-    "https://${ADMIN_USERNAME}:${ADMIN_TOKEN}@${GITEA_HOSTNAME}/${ACTIONS_ORG}/${gitea_repo}.git"
+    "${GITEA_ACCESS_URL/\/\//\/\/${ADMIN_USERNAME}:${ADMIN_TOKEN}@}/${ACTIONS_ORG}/${gitea_repo}.git"
   git push gitea --mirror --force 2>&1 | grep -v "^$" || true
   popd > /dev/null
 

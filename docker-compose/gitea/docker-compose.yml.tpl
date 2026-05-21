@@ -25,7 +25,7 @@ services:
     ports:
       - "3000:3000"
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:3000/api/v1/version"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/api/healthz"]
       interval: 10s
       timeout: 5s
       retries: 30

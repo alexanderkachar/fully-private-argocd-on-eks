@@ -1,11 +1,14 @@
 .PHONY: spin-up teardown-soft teardown-hard restore backup-gitea vpn-up vpn-down ansible-setup
 
-VENV       := .venv
-ANSIBLE    := $(VENV)/bin/ansible-playbook
-GALAXY     := $(VENV)/bin/ansible-galaxy
-PIP        := $(VENV)/bin/pip
-PYTHON     := python3
-PLAYBOOKS  := ansible/playbooks
+VENV    := .venv
+REPO    := $(CURDIR)
+ANSIBLE := $(REPO)/$(VENV)/bin/ansible-playbook
+GALAXY  := $(REPO)/$(VENV)/bin/ansible-galaxy
+PIP     := $(REPO)/$(VENV)/bin/pip
+PYTHON  := python3
+
+# All playbook runs cd into ansible/ so ansible.cfg + roles_path resolve.
+RUN     := cd $(REPO)/ansible && $(ANSIBLE)
 
 ansible-setup:
 	$(PYTHON) -m venv $(VENV)
@@ -14,22 +17,22 @@ ansible-setup:
 	$(GALAXY) collection install -r ansible/requirements.yml
 
 spin-up:
-	$(ANSIBLE) $(PLAYBOOKS)/spin-up.yml
+	$(RUN) playbooks/spin-up.yml
 
 teardown-soft:
-	$(ANSIBLE) $(PLAYBOOKS)/teardown-soft.yml
+	$(RUN) playbooks/teardown-soft.yml
 
 teardown-hard:
-	$(ANSIBLE) $(PLAYBOOKS)/teardown-hard.yml -e confirm_hard=$(CONFIRM)
+	$(RUN) playbooks/teardown-hard.yml -e confirm_hard=$(CONFIRM)
 
 restore:
-	$(ANSIBLE) $(PLAYBOOKS)/restore.yml $(if $(BACKUP_KEY),-e backup_key=$(BACKUP_KEY))
+	$(RUN) playbooks/restore.yml $(if $(BACKUP_KEY),-e backup_key=$(BACKUP_KEY))
 
 backup-gitea:
-	$(ANSIBLE) $(PLAYBOOKS)/backup-gitea.yml
+	$(RUN) playbooks/backup-gitea.yml
 
 vpn-up:
-	$(ANSIBLE) $(PLAYBOOKS)/vpn-up.yml
+	$(RUN) playbooks/vpn-up.yml
 
 vpn-down:
-	$(ANSIBLE) $(PLAYBOOKS)/vpn-down.yml
+	$(RUN) playbooks/vpn-down.yml

@@ -22,7 +22,7 @@ REMOTE_SCRIPT=$(cat <<'SCRIPT'
 set -euo pipefail
 ts=$(date -u +%Y-%m-%dT%H-%M-%SZ)
 dump="/tmp/gitea-manual-$ts.zip"
-docker exec gitea bash -lc "cd /tmp && gitea --config /data/gitea/conf/app.ini dump --type zip --file $dump"
+docker exec --user git gitea bash -lc "cd /tmp && gitea --config /data/gitea/conf/app.ini dump --type zip --file $dump"
 docker cp "gitea:$dump" "$dump"
 docker exec gitea rm -f "$dump"
 aws s3 cp "$dump" "s3://__BACKUP_BUCKET__/manual/$ts.zip" --region "__REGION__"

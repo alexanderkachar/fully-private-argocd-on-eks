@@ -20,6 +20,7 @@ resource "helm_release" "argocd" {
   create_namespace = true
   wait             = true
   timeout          = 600
+  upgrade_install  = true
 
   values = [
     yamlencode({
@@ -79,13 +80,14 @@ resource "aws_eks_pod_identity_association" "image_updater" {
 }
 
 resource "helm_release" "image_updater" {
-  name       = "argocd-image-updater"
-  repository = "https://argoproj.github.io/argo-helm"
-  chart      = "argocd-image-updater"
-  version    = var.image_updater_chart_version
-  namespace  = var.namespace
-  wait       = true
-  timeout    = 300
+  name            = "argocd-image-updater"
+  repository      = "https://argoproj.github.io/argo-helm"
+  chart           = "argocd-image-updater"
+  version         = var.image_updater_chart_version
+  namespace       = var.namespace
+  wait            = true
+  timeout         = 300
+  upgrade_install = true
 
   values = [
     yamlencode({
@@ -133,11 +135,12 @@ resource "helm_release" "image_updater" {
 # secret name aligns with a running controller, and on ArgoCD itself so the
 # Application CRD is installed.
 resource "helm_release" "argocd_bootstrap" {
-  name      = "argocd-bootstrap"
-  chart     = "${path.module}/../../../../charts/argocd-bootstrap"
-  namespace = var.namespace
-  wait      = true
-  timeout   = 300
+  name            = "argocd-bootstrap"
+  chart           = "${path.module}/../../../../charts/argocd-bootstrap"
+  namespace       = var.namespace
+  wait            = true
+  timeout         = 300
+  upgrade_install = true
 
   values = [
     yamlencode({
