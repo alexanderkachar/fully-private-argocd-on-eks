@@ -108,6 +108,22 @@ output "vpn_associated" {
   value       = module.vpn.associated
 }
 
+output "vpn_ca_cert_pem" {
+  description = "Self-signed CA cert. Embedded in the client .ovpn config."
+  value       = module.vpn.ca_cert_pem
+}
+
+output "vpn_client_cert_pem" {
+  description = "Client certificate. Embedded in the client .ovpn config."
+  value       = module.vpn.client_cert_pem
+}
+
+output "vpn_client_private_key_pem" {
+  description = "Client private key. Embedded in the client .ovpn config. Retrieve with -raw."
+  value       = module.vpn.client_private_key_pem
+  sensitive   = true
+}
+
 output "gitea_admin_username" {
   description = "Gitea admin username."
   value       = module.gitea_server.admin_username

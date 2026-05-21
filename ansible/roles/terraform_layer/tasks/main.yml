@@ -24,7 +24,7 @@
              | map(attribute='key') | list
              | zip(tf_vars | dict2items | map(attribute='value') | list)
              | map('list') | map('join', '=')
-             | map('regex_replace', '^(.*)$', '-var=\\1') | list) }}
+             | map('regex_replace', '^', '-var=') | list) }}
     chdir: "{{ tf_dir }}"
   register: tf_result
   changed_when: >-

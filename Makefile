@@ -1,4 +1,4 @@
-.PHONY: spin-up teardown-soft teardown-hard restore backup-gitea vpn-up vpn-down ansible-setup
+.PHONY: spin-up teardown-soft teardown-hard restore backup-gitea vpn-up vpn-down vpn-config ansible-setup
 
 VENV    := .venv
 REPO    := $(CURDIR)
@@ -36,3 +36,6 @@ vpn-up:
 
 vpn-down:
 	$(RUN) playbooks/vpn-down.yml
+
+vpn-config:
+	$(REPO)/scripts/vpn-config.sh
