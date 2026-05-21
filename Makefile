@@ -1,4 +1,4 @@
-.PHONY: spin-up teardown-soft teardown-hard restore backup-gitea vpn-up vpn-down vpn-config ansible-setup
+.PHONY: spin-up teardown-soft teardown-hard restore backup-gitea vpn-up vpn-down vpn-config get-passwords ansible-setup
 
 VENV    := .venv
 REPO    := $(CURDIR)
@@ -23,7 +23,7 @@ teardown-soft:
 	$(RUN) playbooks/teardown-soft.yml
 
 teardown-hard:
-	$(RUN) playbooks/teardown-hard.yml -e confirm_hard=$(CONFIRM)
+	$(RUN) playbooks/teardown-hard.yml -e confirm_hard=$(confirm_hard)
 
 restore:
 	$(RUN) playbooks/restore.yml $(if $(BACKUP_KEY),-e backup_key=$(BACKUP_KEY))
@@ -39,3 +39,6 @@ vpn-down:
 
 vpn-config:
 	$(REPO)/scripts/vpn-config.sh
+
+get-passwords:
+	$(REPO)/scripts/get-passwords.sh

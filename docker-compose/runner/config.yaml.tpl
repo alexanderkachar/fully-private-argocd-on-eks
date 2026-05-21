@@ -6,7 +6,7 @@ runner:
   capacity: 2
   envs: {}
   labels:
-    - "ubuntu-latest:docker://node:20-bookworm"
+    - "ubuntu-latest:docker://catthehacker/ubuntu:act-24.04"
     - "self-hosted"
 
 cache:

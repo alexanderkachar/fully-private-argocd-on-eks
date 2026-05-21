@@ -120,6 +120,17 @@ curl -sk https://argocd.alexanderkachar.com/healthz
 curl -sk https://grafana.alexanderkachar.com/api/health  | jq .
 ```
 
+### Get login credentials
+
+Passwords are generated at spin-up and stored in SSM and Kubernetes secrets. Retrieve all three at once:
+
+```bash
+source scripts/assume-role.sh
+make get-passwords
+```
+
+This runs [scripts/get-passwords.sh](scripts/get-passwords.sh), which reads the Gitea password from SSM directly and fetches ArgoCD and Grafana passwords from Kubernetes secrets via an SSM tunnel to the private EKS API.
+
 ## Main Entry Points
 
 - [docs/architecture.md](docs/architecture.md) - architecture, networking, identity, GitOps flow, and diagram.

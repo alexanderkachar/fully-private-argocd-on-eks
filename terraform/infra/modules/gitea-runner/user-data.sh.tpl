@@ -64,7 +64,7 @@ if [[ ! -f /opt/runner/data/.runner ]]; then
       --instance "$GITEA_URL" \
       --token "$TOKEN" \
       --name "$RUNNER_NAME" \
-      --labels "ubuntu-latest:docker://node:20-bookworm,self-hosted"
+      --labels "ubuntu-latest:docker://catthehacker/ubuntu:act-24.04,self-hosted"
 fi
 
 # Start the long-running daemon.
