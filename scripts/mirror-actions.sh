@@ -2,9 +2,9 @@
 # mirror-actions.sh — clone GitHub action repos and push mirrors into Gitea.
 #
 # The Gitea Actions runner is configured with:
-#   GITEA__actions__DEFAULT_ACTIONS_URL: https://<gitea_hostname>/actions
-# so `uses: actions/checkout@v4` resolves to
-#   https://<gitea_hostname>/actions/checkout (tag v4).
+#   GITEA__actions__DEFAULT_ACTIONS_URL: self
+# so `uses: actions/checkout@v4` resolves to the mirrored
+#   <gitea-root>/actions/checkout repository (tag v4).
 #
 # This script creates the 'actions' org in Gitea (if absent) and mirrors
 # each listed repo+tag combination so airgapped runners can resolve them.

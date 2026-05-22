@@ -68,6 +68,17 @@
         ssm_param_name: "{{ gitea_admin_api_token_ssm_name }}"
         ssm_param_timeout: 900
 
+    - name: Poll SSM for current runner readiness
+      ansible.builtin.include_role:
+        name: wait_for_ssm_param
+      vars:
+        ssm_param_name: >-
+          {{
+            hostvars['localhost'].tf.gitea_runner_ready_ssm_name
+            | default(gitea_runner_ready_ssm_name, true)
+          }}
+        ssm_param_timeout: 900
+
 - name: Mirror platform images into ECR
   hosts: localhost
   gather_facts: false

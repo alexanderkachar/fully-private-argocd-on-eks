@@ -7,8 +7,12 @@
 #   tf_state_rm: [ "module.x.resource.y", ... ] — state rm before action
 #   tf_auto_approve: true|false (default true)
 #   tf_command: terraform-compatible command path (default terraform)
+#   tf_live_timeout: async timeout for apply/destroy in seconds
+#   tf_live_poll_delay: seconds between relayed Terraform output chunks
 tf_action: apply
 tf_vars: {}
 tf_state_rm: []
 tf_auto_approve: true
 tf_command: terraform
+tf_live_timeout: 14400
+tf_live_poll_delay: 5

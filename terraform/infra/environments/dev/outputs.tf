@@ -144,6 +144,11 @@ output "gitea_runner_token_ssm_name" {
   value       = module.gitea_server.runner_token_ssm_name
 }
 
+output "gitea_runner_ready_ssm_name" {
+  description = "Per-instance SSM parameter written after the Gitea runner has registered and started."
+  value       = module.gitea_runner.ready_ssm_name
+}
+
 output "gitea_server_ssm_session_command" {
   description = "Copy-paste command to start an SSM session into the Gitea server."
   value       = module.gitea_server.ssm_session_command

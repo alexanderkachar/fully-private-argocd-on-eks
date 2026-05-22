@@ -191,6 +191,7 @@ locals {
     admin_token_ssm_name    = local.admin_api_token_ssm
     runner_token_ssm_name   = local.runner_token_ssm
     data_volume_id_short    = trimprefix(local.data_volume_id, "vol-")
+    compose_sha             = sha256(local.compose_rendered)
   })
 }
 
@@ -222,7 +223,7 @@ resource "aws_instance" "this" {
 
   tags = { Name = local.name }
 
-  depends_on = [aws_s3_object.compose]
+  depends_on = [aws_s3_object.compose, aws_iam_role_policy.instance]
 }
 
 resource "aws_volume_attachment" "data" {

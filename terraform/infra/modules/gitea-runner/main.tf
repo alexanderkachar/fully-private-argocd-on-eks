@@ -1,5 +1,6 @@
 locals {
-  name = "${var.project_name}-${var.environment}-gitea-runner"
+  name                    = "${var.project_name}-${var.environment}-gitea-runner"
+  runner_ready_ssm_prefix = "/${var.project_name}/gitea/runner-ready"
 
   runner_compose = templatefile("${path.module}/../../../../docker-compose/runner/docker-compose.yml.tpl", {
     runner_version     = var.runner_version
@@ -119,6 +120,12 @@ data "aws_iam_policy_document" "runner" {
       "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter${var.runner_token_ssm_name}",
     ]
   }
+
+  statement {
+    sid       = "WriteRunnerReady"
+    actions   = ["ssm:PutParameter"]
+    resources = ["arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter${local.runner_ready_ssm_prefix}/*"]
+  }
 }
 
 resource "aws_iam_role_policy" "runner" {
@@ -150,12 +157,15 @@ resource "aws_s3_object" "config" {
 
 locals {
   user_data = templatefile("${path.module}/user-data.sh.tpl", {
-    region                = data.aws_region.current.name
-    config_bucket         = var.config_bucket_name
-    runner_token_ssm_name = var.runner_token_ssm_name
-    gitea_instance_url    = var.gitea_instance_url
-    runner_version        = var.runner_version
-    runner_name           = local.name
+    region                  = data.aws_region.current.name
+    config_bucket           = var.config_bucket_name
+    runner_token_ssm_name   = var.runner_token_ssm_name
+    runner_ready_ssm_prefix = local.runner_ready_ssm_prefix
+    gitea_instance_url      = var.gitea_instance_url
+    runner_version          = var.runner_version
+    runner_name             = local.name
+    compose_sha             = sha256(local.runner_compose)
+    config_sha              = sha256(local.runner_config)
   })
 }
 
@@ -184,7 +194,7 @@ resource "aws_instance" "this" {
 
   tags = { Name = local.name }
 
-  depends_on = [aws_s3_object.compose, aws_s3_object.config]
+  depends_on = [aws_s3_object.compose, aws_s3_object.config, aws_iam_role_policy.runner]
 }
 
 # ----- EKS access entry for kubectl from workflows -----

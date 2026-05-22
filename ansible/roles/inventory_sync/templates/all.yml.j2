@@ -24,4 +24,5 @@ gitea_server_instance_id: {{ tf.gitea_server_instance_id | default('') | to_json
 gitea_backup_bucket: {{ tf.gitea_backup_bucket | default('') | to_json }}
 gitea_admin_api_token_ssm_name: {{ tf.gitea_admin_api_token_ssm_name | default('') | to_json }}
 gitea_runner_token_ssm_name: {{ tf.gitea_runner_token_ssm_name | default('') | to_json }}
+gitea_runner_ready_ssm_name: {{ tf.gitea_runner_ready_ssm_name | default('') | to_json }}
 vpn_endpoint_id: {{ tf.vpn_endpoint_id | default('') | to_json }}

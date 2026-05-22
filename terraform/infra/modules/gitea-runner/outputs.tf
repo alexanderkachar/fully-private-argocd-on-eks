@@ -3,6 +3,11 @@ output "instance_id" {
   value       = aws_instance.this.id
 }
 
+output "ready_ssm_name" {
+  description = "Per-instance SSM parameter written when the runner bootstrap is ready."
+  value       = "${local.runner_ready_ssm_prefix}/${aws_instance.this.id}"
+}
+
 output "iam_role_arn" {
   description = "IAM role ARN used by the runner. Granted EKS cluster admin via access entry."
   value       = aws_iam_role.this.arn

@@ -1,0 +1,52 @@
+---
+- name: "Check terraform {{ tf_action }} async result"
+  ansible.builtin.async_status:
+    jid: "{{ tf_live_job.ansible_job_id }}"
+  register: tf_live_poll
+  changed_when: false
+  failed_when: false
+
+- name: "Read new terraform {{ tf_action }} output"
+  ansible.builtin.command:
+    argv:
+      - sed
+      - -n
+      - "{{ (tf_live_line_count | int) + 1 }},$p"
+      - "{{ tf_live_log_path }}"
+  register: tf_live_output
+  changed_when: false
+  failed_when: false
+
+- name: "Relay terraform {{ tf_action }} output"
+  ansible.builtin.debug:
+    msg: "{{ tf_live_output.stdout }}"
+  when: (tf_live_output.stdout | default('')) | length > 0
+
+- name: "Track terraform {{ tf_action }} progress"
+  ansible.builtin.set_fact:
+    tf_live_finished: "{{ tf_live_poll.finished | default(false) | bool }}"
+    tf_live_last_status: "{{ tf_live_poll }}"
+    tf_live_poll_count: "{{ (tf_live_poll_count | int) + 1 }}"
+    tf_live_line_count: >-
+      {{
+        (tf_live_line_count | int)
+        + (tf_live_output.stdout_lines | default([]) | length)
+      }}
+
+- name: "Stop polling terraform {{ tf_action }} after the async timeout"
+  ansible.builtin.fail:
+    msg: >-
+      terraform {{ tf_action }} in {{ tf_dir }} did not finish within
+      {{ tf_live_timeout }} seconds. See {{ tf_live_log_path }}.
+  when:
+    - not (tf_live_finished | bool)
+    - (tf_live_poll_count | int) >= (((tf_live_timeout | int) // (tf_live_poll_delay | int)) + 1)
+
+- name: "Pause before polling terraform {{ tf_action }} again"
+  ansible.builtin.pause:
+    seconds: "{{ tf_live_poll_delay }}"
+  when: not (tf_live_finished | bool)
+
+- name: "Poll terraform {{ tf_action }} again"
+  ansible.builtin.include_tasks: stream.yml
+  when: not (tf_live_finished | bool)

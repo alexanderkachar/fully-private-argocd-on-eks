@@ -15,9 +15,9 @@ services:
       GITEA__server__SSH_DOMAIN: ${gitea_domain}
       GITEA__server__START_SSH_SERVER: "false"
       GITEA__service__DISABLE_REGISTRATION: "true"
-      GITEA__service__REQUIRE_SIGNIN_VIEW: "true"
+      GITEA__service__REQUIRE_SIGNIN_VIEW: "false"
       GITEA__actions__ENABLED: "true"
-      GITEA__actions__DEFAULT_ACTIONS_URL: https://${gitea_domain}/actions
+      GITEA__actions__DEFAULT_ACTIONS_URL: self
       GITEA__log__LEVEL: Info
     volumes:
       - /opt/gitea/data:/data

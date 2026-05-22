@@ -1,4 +1,5 @@
 #!/bin/bash
+# Rendered Gitea compose fingerprint: ${compose_sha}
 set -eux
 exec > /var/log/gitea-bootstrap.log 2>&1
 
@@ -9,6 +10,22 @@ GITEA_ADMIN_USER="${admin_username}"
 ADMIN_PW_SSM="${admin_password_ssm_name}"
 ADMIN_TOKEN_SSM="${admin_token_ssm_name}"
 RUNNER_TOKEN_SSM="${runner_token_ssm_name}"
+
+retry() {
+  local attempts="$1"
+  local delay="$2"
+  shift 2
+
+  local attempt=1
+  until "$@"; do
+    if (( attempt >= attempts )); then
+      return 1
+    fi
+    echo "Attempt $attempt/$attempts failed: $*. Retrying in $${delay}s." >&2
+    sleep "$delay"
+    attempt=$((attempt + 1))
+  done
+}
 
 dnf update -y
 dnf install -y docker awscli jq unzip sqlite cronie
@@ -124,7 +141,7 @@ fi
 
 # Fetch the rendered docker-compose file.
 mkdir -p /opt/gitea/compose
-aws s3 cp "s3://$CONFIG_BUCKET/gitea/docker-compose.yml" /opt/gitea/compose/docker-compose.yml --region "$REGION"
+retry 18 10 aws s3 cp "s3://$CONFIG_BUCKET/gitea/docker-compose.yml" /opt/gitea/compose/docker-compose.yml --region "$REGION"
 
 # Start Gitea.
 cd /opt/gitea/compose
@@ -138,7 +155,8 @@ for _ in $(seq 1 60); do
   sleep 5
 done
 
-# Generate (or fetch) admin password and create the admin user idempotently.
+# Generate (or fetch) admin password, then make the Gitea DB agree with SSM.
+# Restored data volumes can already contain the admin user with an older hash.
 ADMIN_PW=$(aws ssm get-parameter --name "$ADMIN_PW_SSM" --with-decryption --region "$REGION" --query 'Parameter.Value' --output text)
 
 if ! docker exec --user git gitea gitea --config /data/gitea/conf/app.ini admin user list 2>/dev/null | grep -q "^[[:space:]]*[0-9]\+[[:space:]]\+$GITEA_ADMIN_USER[[:space:]]"; then
@@ -149,6 +167,11 @@ if ! docker exec --user git gitea gitea --config /data/gitea/conf/app.ini admin 
     --admin \
     --must-change-password=false
 fi
+
+docker exec --user git gitea gitea --config /data/gitea/conf/app.ini admin user change-password \
+  --username "$GITEA_ADMIN_USER" \
+  --password "$ADMIN_PW" \
+  --must-change-password=false
 
 # Issue an API token if one isn't already stored. Token name is fixed so we
 # can detect existence and avoid creating duplicates on every boot.
@@ -166,17 +189,16 @@ if ! aws ssm get-parameter --name "$ADMIN_TOKEN_SSM" --region "$REGION" >/dev/nu
   aws ssm put-parameter --name "$ADMIN_TOKEN_SSM" --type SecureString --value "$TOKEN_VAL" --overwrite --region "$REGION"
 fi
 
-# Generate a runner registration token. Gitea returns a fresh token each
-# call; we only write to SSM if there isn't one yet, so the runner has a
-# stable handshake value.
-if ! aws ssm get-parameter --name "$RUNNER_TOKEN_SSM" --region "$REGION" >/dev/null 2>&1; then
-  RUNNER_TOKEN=$(docker exec --user git gitea gitea --config /data/gitea/conf/app.ini actions generate-runner-token | tr -d '\r\n')
-  if [[ -z "$RUNNER_TOKEN" ]]; then
-    echo "ERROR: runner registration token generation returned no token" >&2
-    exit 1
-  fi
-  aws ssm put-parameter --name "$RUNNER_TOKEN_SSM" --type SecureString --value "$RUNNER_TOKEN" --overwrite --region "$REGION"
+# Generate a current runner registration token on every Gitea boot. A prior
+# SSM value can outlive the Gitea DB it was generated from after teardown.
+RUNNER_TOKEN_OUTPUT=$(docker exec --user git gitea gitea --config /data/gitea/conf/app.ini actions generate-runner-token)
+RUNNER_TOKEN=$(printf '%s\n' "$RUNNER_TOKEN_OUTPUT" | grep -Eo '[[:alnum:]]{40}' | tail -n 1)
+if [[ -z "$RUNNER_TOKEN" ]]; then
+  echo "ERROR: runner registration token generation returned no token" >&2
+  echo "$RUNNER_TOKEN_OUTPUT" >&2
+  exit 1
 fi
+aws ssm put-parameter --name "$RUNNER_TOKEN_SSM" --type SecureString --value "$RUNNER_TOKEN" --overwrite --region "$REGION"
 
 # Daily backup cron — runs `gitea dump` and uploads to the backups bucket.
 cat > /etc/cron.d/gitea-backup <<CRON
