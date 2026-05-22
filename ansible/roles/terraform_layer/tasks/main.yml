@@ -29,6 +29,7 @@
     tf_live_line_count: 0
     tf_live_poll_count: 0
     tf_live_last_status: {}
+    tf_destroy_failure_expected: false
 
 - name: "terraform {{ tf_action }} ({{ tf_dir | basename }})"
   ansible.builtin.command:
@@ -65,6 +66,40 @@
   register: tf_result
   changed_when: false
 
+- name: Read residual Terraform state after allowed destroy failure
+  ansible.builtin.command:
+    argv: "{{ [tf_command, 'state', 'list'] }}"
+    chdir: "{{ tf_dir }}"
+  register: tf_destroy_residual_state
+  changed_when: false
+  failed_when: false
+  when:
+    - tf_action == 'destroy'
+    - (tf_live_last_status.rc | default(1) | int) != 0
+    - tf_destroy_allowed_residual_state | length > 0
+
+- name: Accept expected Terraform destroy residue
+  ansible.builtin.set_fact:
+    tf_destroy_failure_expected: >-
+      {{
+        (tf_destroy_residual_state.rc | default(1) | int) == 0
+        and
+        ((tf_destroy_residual_state.stdout_lines | default([]) | sort)
+         == (tf_destroy_allowed_residual_state | sort))
+      }}
+  when:
+    - tf_action == 'destroy'
+    - (tf_live_last_status.rc | default(1) | int) != 0
+    - tf_destroy_allowed_residual_state | length > 0
+
+- name: Report accepted Terraform destroy residue
+  ansible.builtin.debug:
+    msg: >-
+      terraform destroy in {{ tf_dir }} left the expected Terraform state
+      residue: {{ tf_destroy_residual_state.stdout_lines | join(', ') }}.
+      See {{ tf_live_log_path }} for the original destroy output.
+  when: tf_destroy_failure_expected | default(false) | bool
+
 - name: "Fail when terraform {{ tf_action }} failed"
   ansible.builtin.fail:
     msg: |-
@@ -72,7 +107,9 @@
       See {{ tf_live_log_path }}.
 
       {{ (tf_result.stdout_lines | default([]))[-80:] | join('\n') }}
-  when: (tf_live_last_status.rc | default(1) | int) != 0
+  when:
+    - (tf_live_last_status.rc | default(1) | int) != 0
+    - not (tf_destroy_failure_expected | default(false) | bool)
 
 - name: "Report terraform {{ tf_action }} changes"
   ansible.builtin.command:
@@ -81,5 +118,6 @@
   changed_when: >-
     ('Apply complete!' in tf_result.stdout)
     or ('Destroy complete!' in tf_result.stdout)
+    or (tf_destroy_failure_expected | default(false) | bool)
     or ('Resources: 0 added, 0 changed, 0 destroyed' not in tf_result.stdout
         and (tf_live_last_status.rc | default(1) | int) == 0)

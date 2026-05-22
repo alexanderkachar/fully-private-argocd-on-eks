@@ -43,13 +43,13 @@ Order is load-bearing in two places. Image mirroring (step 4) must finish before
 make teardown-soft
 ```
 
-Backs up Gitea, destroys platform and infra compute, and preserves the Gitea data EBS volume for the next `make spin-up`.
+Backs up Gitea, destroys platform and infra compute, and preserves the Gitea data EBS volume for the next `make spin-up`. A non-empty Gitea backup bucket is retained rather than emptied during teardown.
 
 ```bash
 CONFIRM_HARD_TEARDOWN=destroy-gitea-state make teardown-hard
 ```
 
-Runs soft teardown, then deletes the preserved Gitea data volume.
+Runs soft teardown, then deletes the preserved Gitea data volume. It still retains a non-empty Gitea backup bucket.
 
 ## Operator Access (VPN)
 

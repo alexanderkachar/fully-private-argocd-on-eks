@@ -10,9 +10,8 @@ resource "random_id" "suffix" {
 resource "aws_s3_bucket" "this" {
   bucket = "${local.name_prefix}-gitea-backups-${random_id.suffix.hex}"
 
-  # Backups are precious — destroy is opt-in via teardown-hard, where
-  # force_destroy is briefly flipped on by a separate var. Keep it off here
-  # so an accidental `terraform destroy` cannot wipe historical dumps.
+  # Backups are precious. Keep this off so teardown leaves a non-empty backup
+  # bucket behind instead of wiping historical dumps.
   force_destroy = false
 
   tags = {

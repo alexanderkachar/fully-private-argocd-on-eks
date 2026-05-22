@@ -67,3 +67,6 @@
         tf_state_rm:
           - "module.gitea_server.aws_ebs_volume.data[0]"
           - "module.gitea_server.aws_ebs_volume.data"
+        tf_destroy_allowed_residual_state:
+          - "module.s3_backup.aws_s3_bucket.this"
+          - "module.s3_backup.random_id.suffix"
