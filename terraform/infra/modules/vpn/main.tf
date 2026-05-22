@@ -94,6 +94,14 @@ resource "tls_locally_signed_cert" "client" {
   ]
 }
 
+resource "time_sleep" "client_cert_validity_start" {
+  create_duration = "1m"
+
+  triggers = {
+    client_cert_id = tls_locally_signed_cert.client.id
+  }
+}
+
 # ----- ACM imports -----
 # Mutual auth requires both certs to live in ACM (in the same region as the
 # VPN endpoint) and both must include the CA chain.
@@ -119,6 +127,8 @@ resource "aws_acm_certificate" "client" {
   private_key       = tls_private_key.client.private_key_pem
   certificate_body  = tls_locally_signed_cert.client.cert_pem
   certificate_chain = tls_self_signed_cert.ca.cert_pem
+
+  depends_on = [time_sleep.client_cert_validity_start]
 
   tags = {
     Name = "${local.name_prefix}-vpn-client"
@@ -208,4 +218,11 @@ resource "aws_ec2_client_vpn_authorization_rule" "vpc" {
   target_network_cidr    = var.vpc_cidr
   authorize_all_groups   = true
   description            = "Allow VPN clients to reach the entire VPC."
+
+  depends_on = [aws_ec2_client_vpn_network_association.this]
+
+  timeouts {
+    create = "30m"
+    delete = "30m"
+  }
 }
